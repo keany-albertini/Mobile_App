@@ -649,6 +649,15 @@ export default function App() {
   }, [session, refreshCloudData]);
 
   useEffect(() => {
+    if (screenMode === 'game' && !session) {
+      statusRef.current = 'ready';
+      setStatus('ready');
+      setAuthMessage('Ta session est terminée. Reconnecte-toi pour continuer à jouer.');
+      setScreenMode('account');
+    }
+  }, [screenMode, session]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
@@ -710,11 +719,19 @@ export default function App() {
           options: { data: { display_name: displayName } },
         });
         if (error) throw error;
-        setAuthMessage(data.session ? 'Compte créé et connecté.' : 'Compte créé. Vérifie ton e-mail pour confirmer ton inscription.');
+        if (data.session) {
+          sessionRef.current = data.session;
+          setAuthMessage('Compte créé et connecté.');
+          setScreenMode('menu');
+        } else {
+          setAuthMessage('Compte créé. Vérifie ton e-mail pour confirmer ton inscription.');
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        sessionRef.current = data.session || null;
         setAuthMessage('Connexion réussie.');
+        setScreenMode('menu');
       }
     } catch (error) {
       setAuthMessage(error?.message || 'Connexion impossible.');
@@ -756,6 +773,12 @@ export default function App() {
   }, []);
 
   const playGame = useCallback(() => {
+    if (!sessionRef.current?.user) {
+      setAuthMessage('Connecte-toi ou crée un compte pour pouvoir jouer.');
+      setScreenMode('account');
+      return;
+    }
+
     setScreenMode('game');
     startGame();
   }, [startGame]);
