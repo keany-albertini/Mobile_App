@@ -3,6 +3,7 @@ import {
   SafeAreaView,
   View,
   Text,
+  TextInput,
   StyleSheet,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { supabase } from './supabase';
 
 const LANE_COUNT = 3;
 const WORLD_SCALE = 1;
@@ -550,6 +552,23 @@ export default function App() {
     totalGames: 0,
     totalPassed: 0,
   });
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [cloudStats, setCloudStats] = useState({
+    bestScore: 0,
+    bestLevel: 1,
+    totalGames: 0,
+    totalPassed: 0,
+  });
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [cloudMessage, setCloudMessage] = useState('');
+  const [authMode, setAuthMode] = useState('signin');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
 
   const carsRef = useRef([]);
   const statusRef = useRef('ready');
@@ -558,6 +577,76 @@ export default function App() {
   const spawnTimerRef = useRef(0);
   const lastTickRef = useRef(Date.now());
   const nextIdRef = useRef(1);
+  const sessionRef = useRef(null);
+
+  const refreshCloudData = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    if (!currentSession?.user) {
+      setProfile(null);
+      setLeaderboard([]);
+      return;
+    }
+
+    setCloudBusy(true);
+    setCloudMessage('');
+
+    try {
+      const userId = currentSession.user.id;
+      const [profileResult, statsResult, leaderboardResult] = await Promise.all([
+        supabase.from('profiles').select('display_name').eq('id', userId).single(),
+        supabase.from('player_stats').select('best_score,best_level,total_games,total_passed').eq('user_id', userId).single(),
+        supabase.from('player_stats').select('user_id,best_score,best_level,total_games,total_passed,profiles(display_name)').order('best_score', { ascending: false }).limit(10),
+      ]);
+
+      if (profileResult.error) throw profileResult.error;
+      if (statsResult.error) throw statsResult.error;
+      if (leaderboardResult.error) throw leaderboardResult.error;
+
+      setProfile(profileResult.data);
+      setCloudStats({
+        bestScore: Number(statsResult.data?.best_score) || 0,
+        bestLevel: Math.max(1, Number(statsResult.data?.best_level) || 1),
+        totalGames: Number(statsResult.data?.total_games) || 0,
+        totalPassed: Number(statsResult.data?.total_passed) || 0,
+      });
+      setLeaderboard(leaderboardResult.data || []);
+    } catch (error) {
+      setCloudMessage(error?.message || 'Impossible de charger les statistiques en ligne.');
+    } finally {
+      setCloudBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      sessionRef.current = data.session || null;
+      setSession(data.session || null);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      sessionRef.current = nextSession || null;
+      setSession(nextSession || null);
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    sessionRef.current = session;
+    if (session) {
+      refreshCloudData();
+    } else {
+      setProfile(null);
+      setLeaderboard([]);
+      setCloudStats({ bestScore: 0, bestLevel: 1, totalGames: 0, totalPassed: 0 });
+    }
+  }, [session, refreshCloudData]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -591,6 +680,55 @@ export default function App() {
         // The game remains playable even if local storage is unavailable.
       }
     }
+  }, []);
+
+  const handleAuthSubmit = useCallback(async () => {
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword;
+    const displayName = authName.trim();
+
+    if (!email || !password) {
+      setAuthMessage('Entre ton e-mail et ton mot de passe.');
+      return;
+    }
+    if (password.length < 6) {
+      setAuthMessage('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+    if (authMode === 'signup' && displayName.length < 2) {
+      setAuthMessage('Choisis un nom de joueur d’au moins 2 caractères.');
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthMessage('');
+    try {
+      if (authMode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: displayName } },
+        });
+        if (error) throw error;
+        setAuthMessage(data.session ? 'Compte créé et connecté.' : 'Compte créé. Vérifie ton e-mail pour confirmer ton inscription.');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setAuthMessage('Connexion réussie.');
+      }
+    } catch (error) {
+      setAuthMessage(error?.message || 'Connexion impossible.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }, [authEmail, authPassword, authMode, authName]);
+
+  const handleSignOut = useCallback(async () => {
+    setAuthBusy(true);
+    setAuthMessage('');
+    const { error } = await supabase.auth.signOut();
+    setAuthMessage(error ? error.message : 'Déconnecté.');
+    setAuthBusy(false);
   }, []);
 
   const syncCars = useCallback((nextCars) => {
@@ -755,6 +893,17 @@ export default function App() {
 
           return nextStats;
         });
+
+        if (sessionRef.current?.user) {
+          supabase.rpc('record_game', {
+            p_score: currentScore,
+            p_level: currentLevel,
+            p_passed: passedRef.current,
+          }).then(({ error }) => {
+            if (error) setCloudMessage(error.message);
+            else refreshCloudData();
+          });
+        }
       } else {
         syncCars(nextCars);
       }
@@ -766,7 +915,7 @@ export default function App() {
     }, 16);
 
     return () => clearInterval(timer);
-  }, [boardSize, syncCars]);
+  }, [boardSize, syncCars, refreshCloudData]);
 
   const handleTap = useCallback(
     (carId) => {
@@ -994,17 +1143,22 @@ export default function App() {
               </Pressable>
 
               <Pressable
+                onPress={() => setScreenMode('account')}
                 style={({ pressed }) => [
                   styles.fullMenuSecondaryButton,
                   pressed && styles.fullMenuPressed,
                 ]}
               >
                 <View style={styles.fullMenuSecondaryIcon}>
-                  <Text style={styles.fullMenuSecondaryIconText}>⚙</Text>
+                  <Text style={styles.fullMenuSecondaryIconText}>●</Text>
                 </View>
                 <View style={styles.fullMenuSecondaryMain}>
-                  <Text style={styles.fullMenuSecondaryMainText}>PARAMÈTRES</Text>
-                  <Text style={styles.fullMenuSoon}>BIENTÔT</Text>
+                  <Text style={styles.fullMenuSecondaryMainText}>
+                    {session ? (profile?.display_name || 'MON COMPTE') : 'CONNEXION / INSCRIPTION'}
+                  </Text>
+                  <Text style={styles.fullMenuSoon}>
+                    {session ? 'COMPTE JOUEUR CONNECTÉ' : 'SAUVEGARDE EN LIGNE'}
+                  </Text>
                 </View>
                 <Text style={styles.fullMenuChevron}>›</Text>
               </Pressable>
@@ -1015,57 +1169,87 @@ export default function App() {
     );
   }
 
+  if (screenMode === 'account') {
+    return (
+      <SafeAreaView style={styles.accountSafeArea}>
+        <StatusBar style="light" />
+        <ScrollView style={styles.accountScroll} contentContainerStyle={styles.accountContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.accountHeader}>
+            <Pressable onPress={() => setScreenMode('menu')} style={styles.accountBackButton}>
+              <Text style={styles.accountBackText}>‹ MENU</Text>
+            </Pressable>
+            <View>
+              <Text style={styles.accountEyebrow}>CARREFOUR ONLINE</Text>
+              <Text style={styles.accountTitle}>{session ? 'Mon compte' : 'Compte joueur'}</Text>
+            </View>
+          </View>
+
+          {session ? (
+            <View style={styles.accountCard}>
+              <View style={styles.accountAvatar}><Text style={styles.accountAvatarText}>●</Text></View>
+              <Text style={styles.accountPlayerName}>{profile?.display_name || 'Joueur'}</Text>
+              <Text style={styles.accountEmail}>{session.user.email}</Text>
+              <Text style={styles.accountConnected}>● CONNECTÉ · STATS SYNCHRONISÉES</Text>
+              <View style={styles.accountMiniGrid}>
+                <View style={styles.accountMiniCard}><Text style={styles.accountMiniLabel}>RECORD</Text><Text style={styles.accountMiniValue}>{cloudStats.bestScore}</Text></View>
+                <View style={styles.accountMiniCard}><Text style={styles.accountMiniLabel}>NIVEAU MAX</Text><Text style={styles.accountMiniValue}>{cloudStats.bestLevel}</Text></View>
+              </View>
+              <Pressable onPress={() => setScreenMode('stats')} style={styles.accountPrimaryButton}><Text style={styles.accountPrimaryText}>VOIR LES STATISTIQUES</Text></Pressable>
+              <Pressable onPress={handleSignOut} disabled={authBusy} style={styles.accountLogoutButton}><Text style={styles.accountLogoutText}>{authBusy ? 'DÉCONNEXION…' : 'SE DÉCONNECTER'}</Text></Pressable>
+            </View>
+          ) : (
+            <View style={styles.accountCard}>
+              <View style={styles.accountTabs}>
+                <Pressable onPress={() => { setAuthMode('signin'); setAuthMessage(''); }} style={[styles.accountTab, authMode === 'signin' && styles.accountTabActive]}>
+                  <Text style={[styles.accountTabText, authMode === 'signin' && styles.accountTabTextActive]}>CONNEXION</Text>
+                </Pressable>
+                <Pressable onPress={() => { setAuthMode('signup'); setAuthMessage(''); }} style={[styles.accountTab, authMode === 'signup' && styles.accountTabActive]}>
+                  <Text style={[styles.accountTabText, authMode === 'signup' && styles.accountTabTextActive]}>INSCRIPTION</Text>
+                </Pressable>
+              </View>
+              {authMode === 'signup' ? <TextInput value={authName} onChangeText={setAuthName} placeholder="Nom de joueur" placeholderTextColor="#7890a5" autoCapitalize="words" style={styles.accountInput} /> : null}
+              <TextInput value={authEmail} onChangeText={setAuthEmail} placeholder="Adresse e-mail" placeholderTextColor="#7890a5" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} style={styles.accountInput} />
+              <TextInput value={authPassword} onChangeText={setAuthPassword} placeholder="Mot de passe" placeholderTextColor="#7890a5" secureTextEntry style={styles.accountInput} />
+              {authMessage ? <Text style={styles.accountMessage}>{authMessage}</Text> : null}
+              <Pressable onPress={handleAuthSubmit} disabled={authBusy} style={({ pressed }) => [styles.accountPrimaryButton, (pressed || authBusy) && styles.fullMenuPressed]}>
+                <Text style={styles.accountPrimaryText}>{authBusy ? 'PATIENTE…' : authMode === 'signup' ? 'CRÉER MON COMPTE' : 'SE CONNECTER'}</Text>
+              </Pressable>
+              <Text style={styles.accountPrivacyText}>Ton compte permet de sauvegarder tes records et d’apparaître dans le classement Carrefour.</Text>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (screenMode === 'stats') {
+    const shownStats = session ? cloudStats : playerStats;
     return (
       <SafeAreaView style={styles.statsSafeArea}>
         <StatusBar style="dark" />
-        <View style={styles.statsScreen}>
+        <ScrollView style={styles.statsScreen} contentContainerStyle={styles.statsScreenContent}>
           <View style={styles.statsHeader}>
-            <Pressable
-              onPress={() => setScreenMode('menu')}
-              style={styles.statsBackButton}
-            >
-              <Text style={styles.statsBackText}>‹ MENU</Text>
-            </Pressable>
-            <View>
-              <Text style={styles.statsEyebrow}>PROGRESSION JOUEUR</Text>
-              <Text style={styles.statsTitle}>Statistiques</Text>
-            </View>
+            <Pressable onPress={() => setScreenMode('menu')} style={styles.statsBackButton}><Text style={styles.statsBackText}>‹ MENU</Text></Pressable>
+            <View><Text style={styles.statsEyebrow}>{session ? 'STATISTIQUES EN LIGNE' : 'PROGRESSION LOCALE'}</Text><Text style={styles.statsTitle}>Statistiques</Text></View>
           </View>
-
-          <View style={styles.statsHeroCard}>
-            <Text style={styles.statsHeroLabel}>MEILLEUR SCORE</Text>
-            <Text style={styles.statsHeroValue}>{playerStats.bestScore}</Text>
-            <Text style={styles.statsHeroUnit}>POINTS</Text>
-          </View>
-
+          <View style={styles.statsHeroCard}><Text style={styles.statsHeroLabel}>MEILLEUR SCORE</Text><Text style={styles.statsHeroValue}>{shownStats.bestScore}</Text><Text style={styles.statsHeroUnit}>POINTS</Text></View>
           <View style={styles.statsGrid}>
-            <View style={styles.statsMetricCard}>
-              <Text style={styles.statsMetricIcon}>▥</Text>
-              <Text style={styles.statsMetricLabel}>NIVEAU MAX</Text>
-              <Text style={styles.statsMetricValue}>{playerStats.bestLevel}</Text>
-            </View>
-            <View style={styles.statsMetricCard}>
-              <Text style={styles.statsMetricIcon}>◆</Text>
-              <Text style={styles.statsMetricLabel}>PARTIES</Text>
-              <Text style={styles.statsMetricValue}>{playerStats.totalGames}</Text>
-            </View>
-            <View style={styles.statsMetricCard}>
-              <Text style={styles.statsMetricIcon}>➜</Text>
-              <Text style={styles.statsMetricLabel}>VOITURES PASSÉES</Text>
-              <Text style={styles.statsMetricValue}>{playerStats.totalPassed}</Text>
-            </View>
-            <View style={styles.statsMetricCard}>
-              <Text style={styles.statsMetricIcon}>★</Text>
-              <Text style={styles.statsMetricLabel}>RECORD</Text>
-              <Text style={styles.statsMetricValue}>{playerStats.bestScore}</Text>
-            </View>
+            <View style={styles.statsMetricCard}><Text style={styles.statsMetricIcon}>▥</Text><Text style={styles.statsMetricLabel}>NIVEAU MAX</Text><Text style={styles.statsMetricValue}>{shownStats.bestLevel}</Text></View>
+            <View style={styles.statsMetricCard}><Text style={styles.statsMetricIcon}>◆</Text><Text style={styles.statsMetricLabel}>PARTIES</Text><Text style={styles.statsMetricValue}>{shownStats.totalGames}</Text></View>
+            <View style={styles.statsMetricCard}><Text style={styles.statsMetricIcon}>➜</Text><Text style={styles.statsMetricLabel}>VOITURES PASSÉES</Text><Text style={styles.statsMetricValue}>{shownStats.totalPassed}</Text></View>
+            <View style={styles.statsMetricCard}><Text style={styles.statsMetricIcon}>★</Text><Text style={styles.statsMetricLabel}>RECORD</Text><Text style={styles.statsMetricValue}>{shownStats.bestScore}</Text></View>
           </View>
-
-          <Text style={styles.statsHint}>
-            Les statistiques sont enregistrées automatiquement sur cet appareil après chaque partie terminée.
-          </Text>
-        </View>
+          {session ? (
+            <View style={styles.leaderboardCard}>
+              <View style={styles.leaderboardHeader}><View><Text style={styles.leaderboardEyebrow}>TOP 10</Text><Text style={styles.leaderboardTitle}>Classement mondial</Text></View><Pressable onPress={refreshCloudData} style={styles.leaderboardRefresh}><Text style={styles.leaderboardRefreshText}>{cloudBusy ? '…' : '↻'}</Text></Pressable></View>
+              {leaderboard.map((item, index) => <View key={item.user_id} style={styles.leaderboardRow}><Text style={styles.leaderboardRank}>{index + 1}</Text><View style={styles.leaderboardPlayer}><Text style={styles.leaderboardName} numberOfLines={1}>{item.profiles?.display_name || 'Joueur'}</Text><Text style={styles.leaderboardMeta}>Niveau {item.best_level}</Text></View><Text style={styles.leaderboardScore}>{item.best_score}</Text></View>)}
+              {leaderboard.length === 0 && !cloudBusy ? <Text style={styles.statsHint}>Aucun classement pour le moment. Termine une partie pour inaugurer le tableau !</Text> : null}
+              {cloudMessage ? <Text style={styles.cloudError}>{cloudMessage}</Text> : null}
+            </View>
+          ) : (
+            <View style={styles.statsConnectCard}><Text style={styles.statsConnectTitle}>Passe aux statistiques en ligne</Text><Text style={styles.statsConnectText}>Crée un compte pour sauvegarder tes records et comparer ton score à tous les joueurs.</Text><Pressable onPress={() => setScreenMode('account')} style={styles.statsConnectButton}><Text style={styles.statsConnectButtonText}>CONNEXION / INSCRIPTION</Text></Pressable></View>
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -2705,8 +2889,11 @@ const styles = StyleSheet.create({
   },
   statsScreen: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#edf8fb',
+  },
+  statsScreenContent: {
+    padding: 16,
+    paddingBottom: 34,
   },
   statsHeader: {
     flexDirection: 'row',
@@ -3023,5 +3210,53 @@ const styles = StyleSheet.create({
   fullMenuPressed: {
     opacity: 0.84,
     transform: [{ scale: 0.985 }],
-  }
+  },
+  accountSafeArea: { flex: 1, backgroundColor: '#071b2f' },
+  accountScroll: { flex: 1, backgroundColor: '#071b2f' },
+  accountContent: { flexGrow: 1, padding: 18, paddingBottom: 36, backgroundColor: '#071b2f' },
+  accountHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 22 },
+  accountBackButton: { minWidth: 72, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(125,211,252,0.28)' },
+  accountBackText: { color: '#d9efff', fontSize: 10, fontWeight: '900' },
+  accountEyebrow: { color: '#38bdf8', fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
+  accountTitle: { color: '#ffffff', fontSize: 26, fontWeight: '900', marginTop: 2 },
+  accountCard: { width: '100%', maxWidth: 520, alignSelf: 'center', borderRadius: 28, padding: 18, backgroundColor: '#0d2943', borderWidth: 1, borderColor: 'rgba(125,211,252,0.28)' },
+  accountTabs: { flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: '#071b2f', marginBottom: 16 },
+  accountTab: { flex: 1, minHeight: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  accountTabActive: { backgroundColor: '#0ea5e9' },
+  accountTabText: { color: '#8fb0c8', fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+  accountTabTextActive: { color: '#ffffff' },
+  accountInput: { width: '100%', minHeight: 54, borderRadius: 16, paddingHorizontal: 16, marginBottom: 11, color: '#ffffff', backgroundColor: '#071b2f', borderWidth: 1, borderColor: 'rgba(125,211,252,0.24)', fontSize: 15 },
+  accountMessage: { color: '#cdeeff', fontSize: 11, lineHeight: 16, marginBottom: 12, textAlign: 'center' },
+  accountPrimaryButton: { minHeight: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0ea5e9', marginTop: 4 },
+  accountPrimaryText: { color: '#ffffff', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 },
+  accountPrivacyText: { color: '#86a5bb', fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 14 },
+  accountAvatar: { width: 68, height: 68, borderRadius: 999, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: '#103d5e', borderWidth: 2, borderColor: '#38bdf8' },
+  accountAvatarText: { color: '#7dd3fc', fontSize: 30 },
+  accountPlayerName: { color: '#ffffff', fontSize: 24, fontWeight: '900', textAlign: 'center', marginTop: 12 },
+  accountEmail: { color: '#9ebbd0', fontSize: 11, textAlign: 'center', marginTop: 3 },
+  accountConnected: { color: '#4ade80', fontSize: 9, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginTop: 10 },
+  accountMiniGrid: { flexDirection: 'row', gap: 10, marginTop: 18, marginBottom: 10 },
+  accountMiniCard: { flex: 1, minHeight: 92, borderRadius: 18, padding: 14, justifyContent: 'center', backgroundColor: '#071b2f', borderWidth: 1, borderColor: 'rgba(125,211,252,0.20)' },
+  accountMiniLabel: { color: '#83a8c0', fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  accountMiniValue: { color: '#ffffff', fontSize: 28, fontWeight: '900', marginTop: 4 },
+  accountLogoutButton: { minHeight: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.30)' },
+  accountLogoutText: { color: '#fca5a5', fontSize: 11, fontWeight: '900' },
+  leaderboardCard: { marginTop: 16, borderRadius: 22, padding: 14, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e8ec' },
+  leaderboardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  leaderboardEyebrow: { color: '#0ea5e9', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  leaderboardTitle: { color: '#173b4a', fontSize: 19, fontWeight: '900', marginTop: 2 },
+  leaderboardRefresh: { width: 38, height: 38, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e9f6fb' },
+  leaderboardRefreshText: { color: '#0284c7', fontSize: 20, fontWeight: '900' },
+  leaderboardRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e8f0f2' },
+  leaderboardRank: { width: 34, color: '#0ea5e9', fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  leaderboardPlayer: { flex: 1, paddingHorizontal: 8 },
+  leaderboardName: { color: '#234853', fontSize: 12, fontWeight: '900' },
+  leaderboardMeta: { color: '#81969d', fontSize: 9, marginTop: 2 },
+  leaderboardScore: { color: '#173b4a', fontSize: 16, fontWeight: '900' },
+  cloudError: { color: '#b45309', fontSize: 10, lineHeight: 15, marginTop: 10, textAlign: 'center' },
+  statsConnectCard: { marginTop: 16, borderRadius: 22, padding: 18, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e8ec' },
+  statsConnectTitle: { color: '#173b4a', fontSize: 17, fontWeight: '900' },
+  statsConnectText: { color: '#718993', fontSize: 10, lineHeight: 16, marginTop: 6 },
+  statsConnectButton: { minHeight: 48, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0ea5e9', marginTop: 14 },
+  statsConnectButtonText: { color: '#ffffff', fontSize: 10, fontWeight: '900', letterSpacing: 0.7 }
 });
