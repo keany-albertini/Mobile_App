@@ -9,8 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const WORLD_SCALE = 1.78;
-const CAMERA_SCALE = 0.82;
+const WORLD_SCALE = 3.2;
+const CAMERA_SCALE = 0.52;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -47,7 +47,8 @@ const isVertical = (direction) =>
 
 const makeGeometry = (size) => {
   const viewportSize = size / WORLD_SCALE;
-  const roadWidth = (viewportSize * 0.56) / CAMERA_SCALE;
+  const roadWidth = viewportSize * 0.46;
+  const visibleHalf = viewportSize / (2 * CAMERA_SCALE);
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
   const carLength = laneWidth * 1.23;
@@ -62,6 +63,8 @@ const makeGeometry = (size) => {
     carLength,
     carWidth,
     center,
+    visibleMin: center - visibleHalf,
+    visibleMax: center + visibleHalf,
     intersectionMin: center - roadHalf,
     intersectionMax: center + roadHalf,
   };
@@ -159,8 +162,8 @@ const createCar = (existingCars, geometry, level, id) => {
     const sign = getAxisSign(direction);
     const axis =
       sign > 0
-        ? -geometry.carLength * 0.8
-        : geometry.size + geometry.carLength * 0.8;
+        ? geometry.visibleMin - geometry.carLength * 0.8
+        : geometry.visibleMax + geometry.carLength * 0.8;
 
     const blocked = existingCars.some((car) => {
       if (car.direction !== direction) return false;
@@ -524,6 +527,7 @@ function Car({ car, size, onGesture, crashed }) {
 }
 
 export default function App() {
+  const [screenMode, setScreenMode] = useState('menu');
   const [boardSize, setBoardSize] = useState(0);
   const [cars, setCars] = useState([]);
   const [status, setStatus] = useState('ready');
@@ -566,6 +570,17 @@ export default function App() {
     setCrashedIds([]);
     setLastAction('Trafic lancé. Anticipe les files !');
     setStatus('running');
+  }, []);
+
+  const playGame = useCallback(() => {
+    setScreenMode('game');
+    startGame();
+  }, [startGame]);
+
+  const returnToMenu = useCallback(() => {
+    statusRef.current = 'ready';
+    setStatus('ready');
+    setScreenMode('menu');
   }, []);
 
   useEffect(() => {
@@ -615,7 +630,8 @@ export default function App() {
       nextCars = nextCars.filter((car) => {
         const limit = geometry.carLength * 1.4;
         const outside =
-          car.axis < -limit || car.axis > geometry.size + limit;
+          car.axis < geometry.visibleMin - limit ||
+          car.axis > geometry.visibleMax + limit;
 
         if (outside) exitedCount += 1;
         return !outside;
@@ -788,19 +804,88 @@ export default function App() {
 
   const levelProgress = (elapsed % 45) / 45;
 
+  if (screenMode === 'menu') {
+    return (
+      <SafeAreaView style={styles.menuSafeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.menuScreen}>
+          <View style={styles.menuGlowOne} />
+          <View style={styles.menuGlowTwo} />
+
+          <View style={styles.menuTopBar}>
+            <View>
+              <Text style={styles.menuEyebrow}>TRAFFIC CONTROL</Text>
+              <Text style={styles.menuBrand}>CARREFOUR</Text>
+            </View>
+            <View style={styles.menuVersion}>
+              <Text style={styles.menuVersionText}>V0.7</Text>
+            </View>
+          </View>
+
+          <View style={styles.menuHero}>
+            <View style={styles.menuRoadPreview}>
+              <View style={styles.menuRoadVertical} />
+              <View style={styles.menuRoadHorizontal} />
+              <View style={[styles.menuMiniCar, { left: '46%', top: '14%' }]} />
+              <View style={[styles.menuMiniCarAlt, { left: '68%', top: '47%' }]} />
+              <View style={[styles.menuMiniCarWarm, { left: '28%', top: '63%' }]} />
+            </View>
+
+            <Text style={styles.menuHeroTitle}>Maîtrise le trafic.</Text>
+            <Text style={styles.menuHeroText}>
+              Arrête, relance, accélère et change de voie pour éviter les collisions.
+            </Text>
+          </View>
+
+          <View style={styles.menuButtons}>
+            <Pressable
+              onPress={playGame}
+              style={({ pressed }) => [
+                styles.menuPlayButton,
+                pressed && styles.menuButtonPressed,
+              ]}
+            >
+              <View>
+                <Text style={styles.menuPlayKicker}>NIVEAU 1</Text>
+                <Text style={styles.menuPlayText}>JOUER</Text>
+              </View>
+              <Text style={styles.menuPlayArrow}>›</Text>
+            </Pressable>
+
+            <View style={styles.menuSecondaryRow}>
+              <Pressable style={styles.menuSecondaryButton}>
+                <Text style={styles.menuSecondaryIcon}>⚙</Text>
+                <Text style={styles.menuSecondaryTitle}>PARAMÈTRES</Text>
+                <Text style={styles.menuSoon}>BIENTÔT</Text>
+              </Pressable>
+
+              <Pressable style={styles.menuSecondaryButton}>
+                <Text style={styles.menuSecondaryIcon}>▥</Text>
+                <Text style={styles.menuSecondaryTitle}>STATISTIQUES</Text>
+                <Text style={styles.menuSoon}>BIENTÔT</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Text style={styles.menuFooter}>Prototype jouable · V0.7</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <View style={styles.screen}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.6</Text>
+            <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
+            <Text style={styles.title}>CARREFOUR · V0.7</Text>
           </View>
-          <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.6</Text>
-          </View>
+          <Pressable onPress={returnToMenu} style={styles.menuChip}>
+            <Text style={styles.menuChipText}>MENU</Text>
+          </Pressable>
         </View>
 
         <View style={styles.statsRow}>
@@ -830,10 +915,6 @@ export default function App() {
             ]}
           />
         </View>
-        <Text style={styles.progressCaption}>
-          Difficulté progressive · niveau suivant dans{' '}
-          {Math.max(0, 45 - Math.floor(elapsed % 45))}s
-        </Text>
 
         <View
           onLayout={(event) => {
@@ -876,27 +957,6 @@ export default function App() {
               : null}
           </View>
 
-          {status === 'ready' ? (
-            <View style={styles.overlay}>
-              <View style={styles.overlayCard}>
-                <Text style={styles.overlayKicker}>3 VOIES × 4 AXES</Text>
-                <Text style={styles.overlayTitle}>Gère le carrefour</Text>
-                <Text style={styles.overlayText}>
-                  Arrête les voitures exactement où tu veux, accélère, ralentis et change de voie sans provoquer de collision.
-                </Text>
-                <Pressable
-                  onPress={startGame}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.primaryButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.6</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
           {status === 'gameover' ? (
             <View style={styles.overlay}>
               <View style={styles.overlayCard}>
@@ -916,6 +976,9 @@ export default function App() {
                 >
                   <Text style={styles.primaryButtonText}>REJOUER</Text>
                 </Pressable>
+                <Pressable onPress={returnToMenu} style={styles.backMenuButton}>
+                  <Text style={styles.backMenuButtonText}>RETOUR AU MENU</Text>
+                </Pressable>
               </View>
             </View>
           ) : null}
@@ -928,51 +991,10 @@ export default function App() {
           </Text>
         </View>
 
-        <View style={styles.controlsCard}>
-          <Text style={styles.controlsTitle}>CONTRÔLES</Text>
-          <View style={styles.controlRow}>
-            <Text style={styles.controlGesture}>APPUI</Text>
-            <Text style={styles.controlDescription}>
-              arrêt immédiat n’importe où / repartir
-            </Text>
-          </View>
-          <View style={styles.controlRow}>
-            <Text style={styles.controlGesture}>SWIPE ↕ ↔</Text>
-            <Text style={styles.controlDescription}>
-              sens de circulation = rapide · inverse = ralenti
-            </Text>
-          </View>
-          <View style={styles.controlRow}>
-            <Text style={styles.controlGesture}>SWIPE CÔTÉ</Text>
-            <Text style={styles.controlDescription}>
-              glisse vers la voie voulue, même dans le carrefour
-            </Text>
-          </View>
-
-          <View style={styles.stateLegend}>
-            {['stopped', 'slow', 'normal', 'fast'].map((state) => (
-              <View key={state} style={styles.stateLegendItem}>
-                <View
-                  style={[
-                    styles.stateDot,
-                    {
-                      backgroundColor:
-                        state === 'stopped'
-                          ? '#ef4444'
-                          : state === 'slow'
-                            ? '#f59e0b'
-                            : state === 'fast'
-                              ? '#22d3ee'
-                              : '#e2e8f0',
-                    },
-                  ]}
-                />
-                <Text style={styles.stateLegendText}>
-                  {SPEED_LABELS[state]}
-                </Text>
-              </View>
-            ))}
-          </View>
+        <View style={styles.quickControls}>
+          <Text style={styles.quickControlText}>APPUI · arrêt / normal</Text>
+          <Text style={styles.quickControlText}>SWIPE AVANT · rapide</Text>
+          <Text style={styles.quickControlText}>SWIPE CÔTÉ · voie</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -982,14 +1004,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#dceff3',
+    backgroundColor: '#edf8fa',
   },
   screen: {
     flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#dceff3',
+    backgroundColor: '#edf8fa',
   },
   header: {
     flexDirection: 'row',
@@ -1074,29 +1096,29 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#7fbd74',
+    backgroundColor: '#b3df91',
     borderWidth: 1,
-    borderColor: '#9fc9c0',
+    borderColor: '#c9e2dc',
   },
   sceneLayer: {
     position: 'absolute',
   },
   grass: {
-    backgroundColor: '#83c879',
+    backgroundColor: '#b9e89b',
   },
   cornerPatch: {
     position: 'absolute',
-    backgroundColor: 'rgba(179, 224, 153, 0.30)',
+    backgroundColor: 'rgba(214, 240, 188, 0.40)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#68757f',
+    backgroundColor: '#8f9aa3',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#73808a',
+    backgroundColor: '#99a5ae',
   },
   laneLine: {
     position: 'absolute',
@@ -1305,5 +1327,265 @@ const styles = StyleSheet.create({
     color: '#58727c',
     fontSize: 9,
     fontWeight: '800',
+  },,
+  menuSafeArea: {
+    flex: 1,
+    backgroundColor: '#eef9fb',
   },
+  menuScreen: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 18,
+    backgroundColor: '#eef9fb',
+    overflow: 'hidden',
+  },
+  menuGlowOne: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    right: -90,
+    top: -70,
+    backgroundColor: 'rgba(56,189,248,0.13)',
+  },
+  menuGlowTwo: {
+    position: 'absolute',
+    width: 230,
+    height: 230,
+    borderRadius: 999,
+    left: -100,
+    bottom: 60,
+    backgroundColor: 'rgba(52,211,153,0.12)',
+  },
+  menuTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  menuEyebrow: {
+    color: '#0284c7',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2.2,
+  },
+  menuBrand: {
+    color: '#12333e',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    marginTop: 2,
+  },
+  menuVersion: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe5ea',
+  },
+  menuVersionText: {
+    color: '#0284c7',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  menuHero: {
+    flex: 1,
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  menuRoadPreview: {
+    alignSelf: 'center',
+    width: 210,
+    height: 210,
+    borderRadius: 34,
+    overflow: 'hidden',
+    backgroundColor: '#bce79e',
+    borderWidth: 1,
+    borderColor: '#cfe6df',
+    marginBottom: 24,
+    shadowColor: '#315866',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  menuRoadVertical: {
+    position: 'absolute',
+    width: 72,
+    height: '100%',
+    left: 69,
+    backgroundColor: '#929da6',
+  },
+  menuRoadHorizontal: {
+    position: 'absolute',
+    height: 72,
+    width: '100%',
+    top: 69,
+    backgroundColor: '#929da6',
+  },
+  menuMiniCar: {
+    position: 'absolute',
+    width: 14,
+    height: 28,
+    borderRadius: 5,
+    backgroundColor: '#0ea5e9',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  menuMiniCarAlt: {
+    position: 'absolute',
+    width: 28,
+    height: 14,
+    borderRadius: 5,
+    backgroundColor: '#8b5cf6',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  menuMiniCarWarm: {
+    position: 'absolute',
+    width: 28,
+    height: 14,
+    borderRadius: 5,
+    backgroundColor: '#f97316',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  menuHeroTitle: {
+    color: '#16343f',
+    fontSize: 32,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  menuHeroText: {
+    color: '#5c737d',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 22,
+  },
+  menuButtons: {
+    zIndex: 2,
+  },
+  menuPlayButton: {
+    minHeight: 84,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0ea5e9',
+    shadowColor: '#0369a1',
+    shadowOpacity: 0.20,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 4,
+  },
+  menuButtonPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
+  },
+  menuPlayKicker: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  menuPlayText: {
+    color: '#ffffff',
+    fontSize: 27,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  menuPlayArrow: {
+    color: '#ffffff',
+    fontSize: 42,
+    fontWeight: '300',
+    marginTop: -4,
+  },
+  menuSecondaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  menuSecondaryButton: {
+    flex: 1,
+    minHeight: 90,
+    borderRadius: 18,
+    padding: 13,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderWidth: 1,
+    borderColor: '#d5e8ec',
+  },
+  menuSecondaryIcon: {
+    color: '#0ea5e9',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  menuSecondaryTitle: {
+    color: '#284954',
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  menuSoon: {
+    color: '#8ca1a9',
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 3,
+    letterSpacing: 0.8,
+  },
+  menuFooter: {
+    color: '#90a5ad',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 12,
+    zIndex: 2,
+  },
+  menuChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#c9dfe4',
+  },
+  menuChipText: {
+    color: '#377080',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  backMenuButton: {
+    minHeight: 42,
+    marginTop: 9,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eaf4f6',
+  },
+  backMenuButtonText: {
+    color: '#41626d',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  quickControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  quickControlText: {
+    color: '#55727c',
+    fontSize: 9,
+    fontWeight: '800',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#d3e5e9',
+  }
 });
