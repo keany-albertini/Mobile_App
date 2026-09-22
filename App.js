@@ -736,7 +736,7 @@ export default function App() {
         return;
       }
 
-      const geometry = makeGeometry(boardSize);
+      const geometry = makeGeometry(boardSize * WORLD_SCALE);
       const currentCar = carsRef.current.find((car) => car.id === carId);
 
       if (!currentCar) return;
