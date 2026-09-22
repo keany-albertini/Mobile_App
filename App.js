@@ -926,14 +926,12 @@ export default function App() {
             <View style={styles.designBuildingLeft}>
               <View style={styles.designBuildingWindow} />
               <View style={styles.designBuildingWindow} />
-              <Text style={styles.designBuildingSlogan}>CIRCULONS{'
-'}MIEUX</Text>
+              <Text style={styles.designBuildingSlogan}>CIRCULONS · MIEUX</Text>
             </View>
             <View style={styles.designBuildingRight}>
               <View style={styles.designBuildingWindow} />
               <View style={styles.designBuildingWindow} />
-              <Text style={styles.designBuildingSlogan}>DES VILLES{'
-'}PLUS FLUIDES</Text>
+              <Text style={styles.designBuildingSlogan}>DES VILLES · PLUS FLUIDES</Text>
             </View>
 
             <View style={styles.designRoadVertical} />
