@@ -1327,7 +1327,7 @@ const styles = StyleSheet.create({
     color: '#58727c',
     fontSize: 9,
     fontWeight: '800',
-  },,
+  },
   menuSafeArea: {
     flex: 1,
     backgroundColor: '#eef9fb',
