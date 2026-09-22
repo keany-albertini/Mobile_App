@@ -9,7 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const WORLD_SCALE = 1.45;
+const WORLD_SCALE = 1.6;
+const CAMERA_SCALE = 0.88;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -531,7 +532,7 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(0);
   const [lastAction, setLastAction] = useState(
-    'Appuie sur Démarrer pour lancer le trafic.'
+    'Appuie sur Démarrer, puis touche une voiture pour l’arrêter où tu veux.'
   );
   const [crashedIds, setCrashedIds] = useState([]);
 
@@ -584,7 +585,7 @@ export default function App() {
       const geometry = makeGeometry(boardSize * WORLD_SCALE);
       const baseSpeed =
         boardSize *
-        (0.19 + Math.min(currentLevel - 1, 12) * 0.0045);
+        (0.22 + Math.min(currentLevel - 1, 12) * 0.005);
 
       let nextCars = carsRef.current.map((car) => {
         const nextCar = { ...car };
@@ -606,22 +607,6 @@ export default function App() {
           baseSpeed * SPEED_MULTIPLIERS[nextCar.speedState];
         const movement = sign * speed * delta;
 
-        if (nextCar.stopRequested) {
-          const stopAxis = getStopAxis(nextCar.direction, geometry);
-          const reachesStop =
-            sign > 0
-              ? nextCar.axis < stopAxis &&
-                nextCar.axis + movement >= stopAxis
-              : nextCar.axis > stopAxis &&
-                nextCar.axis + movement <= stopAxis;
-
-          if (reachesStop) {
-            nextCar.axis = stopAxis;
-            nextCar.speedState = 'stopped';
-            return nextCar;
-          }
-        }
-
         nextCar.axis += movement;
         return nextCar;
       });
@@ -630,7 +615,7 @@ export default function App() {
       nextCars = nextCars.filter((car) => {
         const limit = geometry.carLength * 1.4;
         const outside =
-          car.axis < -limit || car.axis > boardSize + limit;
+          car.axis < -limit || car.axis > geometry.size + limit;
 
         if (outside) exitedCount += 1;
         return !outside;
@@ -642,8 +627,8 @@ export default function App() {
 
       spawnTimerRef.current += delta;
       const spawnInterval = Math.max(
-        1.05,
-        2.25 - (currentLevel - 1) * 0.11
+        0.95,
+        2.0 - (currentLevel - 1) * 0.1
       );
 
       if (spawnTimerRef.current >= spawnInterval) {
@@ -688,16 +673,15 @@ export default function App() {
 
   const handleTap = useCallback(
     (carId) => {
-      if (statusRef.current !== 'running' || boardSize <= 0) return;
+      if (statusRef.current !== 'running') return;
 
-      const geometry = makeGeometry(boardSize * WORLD_SCALE);
       let action = '';
 
       const nextCars = carsRef.current.map((car) => {
         if (car.id !== carId) return car;
 
         if (car.speedState === 'stopped') {
-          action = 'Repart en vitesse normale.';
+          action = 'La voiture repart.';
           return {
             ...car,
             speedState: 'normal',
@@ -705,24 +689,18 @@ export default function App() {
           };
         }
 
-        if (!isBeforeStopLine(car, geometry)) {
-          action = 'Trop tard : la voiture est déjà engagée.';
-          return car;
-        }
-
-        if (car.stopRequested) {
-          action = 'Ordre d’arrêt annulé.';
-          return { ...car, stopRequested: false };
-        }
-
-        action = 'Arrêt demandé à la prochaine ligne.';
-        return { ...car, stopRequested: true };
+        action = 'Voiture arrêtée immédiatement.';
+        return {
+          ...car,
+          speedState: 'stopped',
+          stopRequested: false,
+        };
       });
 
       if (action) setLastAction(action);
       syncCars(nextCars);
     },
-    [boardSize, syncCars]
+    [syncCars]
   );
 
   const handleGesture = useCallback(
@@ -810,10 +788,10 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.3</Text>
+            <Text style={styles.title}>CARREFOUR · V0.4</Text>
           </View>
           <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.3</Text>
+            <Text style={styles.versionBadgeText}>0.4</Text>
           </View>
         </View>
 
@@ -862,6 +840,7 @@ export default function App() {
             pointerEvents="box-none"
             style={[
               styles.sceneLayer,
+              { transform: [{ scale: CAMERA_SCALE }] },
               boardSize > 0
                 ? {
                     width: boardSize * WORLD_SCALE,
@@ -895,8 +874,7 @@ export default function App() {
                 <Text style={styles.overlayKicker}>3 VOIES × 4 AXES</Text>
                 <Text style={styles.overlayTitle}>Gère le carrefour</Text>
                 <Text style={styles.overlayText}>
-                  Arrête, accélère, ralentis et change les voitures de voie
-                  sans provoquer de collision.
+                  Arrête les voitures exactement où tu veux, accélère, ralentis et change de voie sans provoquer de collision.
                 </Text>
                 <Pressable
                   onPress={startGame}
@@ -905,7 +883,7 @@ export default function App() {
                     pressed && styles.primaryButtonPressed,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.3</Text>
+                  <Text style={styles.primaryButtonText}>DÉMARRER V0.4</Text>
                 </Pressable>
               </View>
             </View>
@@ -947,7 +925,7 @@ export default function App() {
           <View style={styles.controlRow}>
             <Text style={styles.controlGesture}>APPUI</Text>
             <Text style={styles.controlDescription}>
-              arrêt à la ligne / repartir en normal
+              arrêt immédiat n’importe où / repartir
             </Text>
           </View>
           <View style={styles.controlRow}>
@@ -996,14 +974,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#08131a',
+    backgroundColor: '#123441',
   },
   screen: {
     flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#08131a',
+    backgroundColor: '#123441',
   },
   header: {
     flexDirection: 'row',
@@ -1049,9 +1027,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 7,
     borderRadius: 10,
-    backgroundColor: '#10202a',
+    backgroundColor: '#1a4652',
     borderWidth: 1,
-    borderColor: '#1e3440',
+    borderColor: '#2b5d68',
   },
   statLabel: {
     color: '#78909c',
@@ -1069,7 +1047,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 99,
     overflow: 'hidden',
-    backgroundColor: '#18303a',
+    backgroundColor: '#2a5360',
   },
   progressFill: {
     height: '100%',
@@ -1077,7 +1055,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#38bdf8',
   },
   progressCaption: {
-    color: '#647987',
+    color: '#9ab2bc',
     fontSize: 10,
     marginTop: 5,
     marginBottom: 9,
@@ -1088,29 +1066,29 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#204f3d',
+    backgroundColor: '#4b8b5b',
     borderWidth: 1,
-    borderColor: '#2d4c54',
+    borderColor: '#5b8790',
   },
   sceneLayer: {
     position: 'absolute',
   },
   grass: {
-    backgroundColor: '#245944',
+    backgroundColor: '#4f9861',
   },
   cornerPatch: {
     position: 'absolute',
-    backgroundColor: 'rgba(45, 106, 78, 0.20)',
+    backgroundColor: 'rgba(109, 171, 113, 0.24)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#2a3138',
+    backgroundColor: '#4a535c',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#2d353d',
+    backgroundColor: '#525e68',
   },
   laneLine: {
     position: 'absolute',
@@ -1175,16 +1153,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: 'rgba(3,10,14,0.72)',
+    backgroundColor: 'rgba(7,24,30,0.56)',
   },
   overlayCard: {
     width: '100%',
     maxWidth: 300,
     borderRadius: 18,
     padding: 20,
-    backgroundColor: '#0d1b23',
+    backgroundColor: '#173946',
     borderWidth: 1,
-    borderColor: '#2b4654',
+    borderColor: '#3c6975',
   },
   overlayKicker: {
     color: '#38bdf8',
@@ -1243,9 +1221,9 @@ const styles = StyleSheet.create({
     minHeight: 42,
     marginTop: 9,
     borderRadius: 12,
-    backgroundColor: '#0f1d25',
+    backgroundColor: '#19404c',
     borderWidth: 1,
-    borderColor: '#1f3440',
+    borderColor: '#2c5c68',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -1267,9 +1245,9 @@ const styles = StyleSheet.create({
     marginTop: 9,
     borderRadius: 14,
     padding: 12,
-    backgroundColor: '#0e1b22',
+    backgroundColor: '#173946',
     borderWidth: 1,
-    borderColor: '#1d313b',
+    borderColor: '#2a5662',
   },
   controlsTitle: {
     color: '#748a96',
