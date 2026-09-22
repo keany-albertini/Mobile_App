@@ -543,6 +543,12 @@ export default function App() {
     'Appuie sur Démarrer, puis touche une voiture pour l’arrêter où tu veux.'
   );
   const [crashedIds, setCrashedIds] = useState([]);
+  const [playerStats, setPlayerStats] = useState({
+    bestScore: 0,
+    bestLevel: 1,
+    totalGames: 0,
+    totalPassed: 0,
+  });
 
   const carsRef = useRef([]);
   const statusRef = useRef('ready');
@@ -551,6 +557,40 @@ export default function App() {
   const spawnTimerRef = useRef(0);
   const lastTickRef = useRef(Date.now());
   const nextIdRef = useRef(1);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const stored = window.localStorage.getItem('carrefour-player-stats');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setPlayerStats({
+          bestScore: Number(parsed.bestScore) || 0,
+          bestLevel: Math.max(1, Number(parsed.bestLevel) || 1),
+          totalGames: Number(parsed.totalGames) || 0,
+          totalPassed: Number(parsed.totalPassed) || 0,
+        });
+      }
+    } catch (error) {
+      // Ignore unavailable/corrupted local storage and keep default stats.
+    }
+  }, []);
+
+  const persistPlayerStats = useCallback((nextStats) => {
+    setPlayerStats(nextStats);
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(
+          'carrefour-player-stats',
+          JSON.stringify(nextStats)
+        );
+      } catch (error) {
+        // The game remains playable even if local storage is unavailable.
+      }
+    }
+  }, []);
 
   const syncCars = useCallback((nextCars) => {
     carsRef.current = nextCars;
@@ -681,6 +721,8 @@ export default function App() {
         }
       }
 
+      const currentScore =
+        Math.floor(elapsedRef.current * 10) + passedRef.current * 25;
       const collision = findCollision(nextCars, geometry);
 
       if (collision) {
@@ -690,12 +732,31 @@ export default function App() {
         setLastAction('Collision ! La partie est terminée.');
         setStatus('gameover');
         statusRef.current = 'gameover';
+
+        setPlayerStats((previousStats) => {
+          const nextStats = {
+            bestScore: Math.max(previousStats.bestScore, currentScore),
+            bestLevel: Math.max(previousStats.bestLevel, currentLevel),
+            totalGames: previousStats.totalGames + 1,
+            totalPassed: previousStats.totalPassed + passedRef.current,
+          };
+
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.setItem(
+                'carrefour-player-stats',
+                JSON.stringify(nextStats)
+              );
+            } catch (error) {
+              // Keep the in-memory values if storage is unavailable.
+            }
+          }
+
+          return nextStats;
+        });
       } else {
         syncCars(nextCars);
       }
-
-      const currentScore =
-        Math.floor(elapsedRef.current * 10) + passedRef.current * 25;
 
       setElapsed(elapsedRef.current);
       setLevel(currentLevel);
@@ -824,88 +885,199 @@ export default function App() {
   const levelProgress = (elapsed % LEVEL_DURATION) / LEVEL_DURATION;
 
   if (screenMode === 'menu') {
+    const menuSceneSize = Math.min(boardSize, 430);
+
     return (
-      <SafeAreaView style={styles.menuSafeArea}>
+      <SafeAreaView style={styles.designMenuSafeArea}>
         <StatusBar style="dark" />
-        <View style={styles.menuScreen}>
-          <View style={styles.menuGlowOne} />
-          <View style={styles.menuGlowTwo} />
+        <ScrollView
+          style={styles.designMenuScroll}
+          contentContainerStyle={styles.designMenuContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.designSkyGlowOne} />
+          <View style={styles.designSkyGlowTwo} />
 
-          <View style={styles.menuTopBar}>
-            <View>
-              <Text style={styles.menuEyebrow}>TRAFFIC CONTROL</Text>
-              <Text style={styles.menuBrand}>CARREFOUR</Text>
-            </View>
-            <View style={styles.menuVersion}>
-              <Text style={styles.menuVersionText}>V1.0</Text>
-            </View>
-          </View>
-
-          <View style={styles.menuHero}>
-            <View style={styles.menuRoadPreview}>
-              <View style={styles.menuRoadVertical} />
-              <View style={styles.menuRoadHorizontal} />
-              <View style={[styles.menuMiniCar, { left: '46%', top: '14%' }]} />
-              <View style={[styles.menuMiniCarAlt, { left: '68%', top: '47%' }]} />
-              <View style={[styles.menuMiniCarWarm, { left: '28%', top: '63%' }]} />
-            </View>
-
-            <Text style={styles.menuHeroTitle}>Maîtrise le trafic.</Text>
-            <Text style={styles.menuHeroText}>
-              Arrête, relance, accélère et change de voie pour éviter les collisions.
-            </Text>
-          </View>
-
-          <View style={styles.menuButtons}>
-            <Pressable
-              onPress={playGame}
-              style={({ pressed }) => [
-                styles.menuPlayButton,
-                pressed && styles.menuButtonPressed,
-              ]}
-            >
-              <View>
-                <Text style={styles.menuPlayKicker}>NIVEAU 1</Text>
-                <Text style={styles.menuPlayText}>JOUER</Text>
+          <View style={styles.designLogoWrap}>
+            <View style={styles.designLogoRow}>
+              <Text style={styles.designLogoText}>CARREF</Text>
+              <View style={styles.designTrafficLight}>
+                <View style={[styles.designTrafficDot, { backgroundColor: '#ef4444' }]} />
+                <View style={[styles.designTrafficDot, { backgroundColor: '#facc15' }]} />
+                <View style={[styles.designTrafficDot, { backgroundColor: '#22c55e' }]} />
               </View>
-              <Text style={styles.menuPlayArrow}>›</Text>
-            </Pressable>
+              <Text style={styles.designLogoText}>UR</Text>
+            </View>
+            <Text style={styles.designSubtitle}>
+              Maîtrise le trafic et évite les collisions
+            </Text>
+            <View style={styles.designVersionPill}>
+              <Text style={styles.designVersionText}>V1.1 · DESIGN A</Text>
+            </View>
+          </View>
 
-            <View style={styles.menuSecondaryRow}>
-              <Pressable style={styles.menuSecondaryButton}>
-                <Text style={styles.menuSecondaryIcon}>⚙</Text>
-                <Text style={styles.menuSecondaryTitle}>PARAMÈTRES</Text>
-                <Text style={styles.menuSoon}>BIENTÔT</Text>
-              </Pressable>
-
-              <Pressable style={styles.menuSecondaryButton}>
-                <Text style={styles.menuSecondaryIcon}>▥</Text>
-                <Text style={styles.menuSecondaryTitle}>STATISTIQUES</Text>
-                <Text style={styles.menuSoon}>BIENTÔT</Text>
-              </Pressable>
+          <View
+            style={[
+              styles.designCityCard,
+              { width: menuSceneSize, height: menuSceneSize * 0.86 },
+            ]}
+          >
+            <View style={styles.designCitySky} />
+            <View style={styles.designBuildingLeft}>
+              <View style={styles.designBuildingWindow} />
+              <View style={styles.designBuildingWindow} />
+              <Text style={styles.designBuildingSlogan}>CIRCULONS{'
+'}MIEUX</Text>
+            </View>
+            <View style={styles.designBuildingRight}>
+              <View style={styles.designBuildingWindow} />
+              <View style={styles.designBuildingWindow} />
+              <Text style={styles.designBuildingSlogan}>DES VILLES{'
+'}PLUS FLUIDES</Text>
             </View>
 
+            <View style={styles.designRoadVertical} />
+            <View style={styles.designRoadHorizontal} />
+            <View style={styles.designIntersectionCore} />
+
+            <View style={[styles.designLaneMarkVertical, { left: '48.8%', top: 8 }]} />
+            <View style={[styles.designLaneMarkVertical, { left: '48.8%', bottom: 8 }]} />
+            <View style={[styles.designLaneMarkHorizontal, { left: 8, top: '49%' }]} />
+            <View style={[styles.designLaneMarkHorizontal, { right: 8, top: '49%' }]} />
+
+            <View style={[styles.designMiniCarVertical, { top: '13%', left: '46%', backgroundColor: '#ef4444' }]} />
+            <View style={[styles.designMiniCarVertical, { bottom: '11%', left: '52%', backgroundColor: '#0ea5e9' }]} />
+            <View style={[styles.designMiniCarHorizontal, { left: '16%', top: '45%', backgroundColor: '#facc15' }]} />
+            <View style={[styles.designMiniCarHorizontal, { right: '15%', top: '52%', backgroundColor: '#e5e7eb' }]} />
+
+            <View style={[styles.designTree, { left: 18, top: 44 }]} />
+            <View style={[styles.designTreeSmall, { left: 60, top: 25 }]} />
+            <View style={[styles.designTree, { right: 22, top: 47 }]} />
+            <View style={[styles.designTreeSmall, { right: 66, top: 22 }]} />
+            <View style={[styles.designTree, { left: 22, bottom: 35 }]} />
+            <View style={[styles.designTreeSmall, { left: 74, bottom: 16 }]} />
+            <View style={[styles.designTree, { right: 22, bottom: 33 }]} />
+            <View style={[styles.designTreeSmall, { right: 72, bottom: 17 }]} />
+          </View>
+
+          <Pressable
+            onPress={playGame}
+            style={({ pressed }) => [
+              styles.designPlayButton,
+              pressed && styles.designPressed,
+            ]}
+          >
+            <View style={styles.designPlayIcon}>
+              <Text style={styles.designPlayTriangle}>▶</Text>
+            </View>
+            <Text style={styles.designPlayText}>JOUER</Text>
+          </Pressable>
+
+          <View style={styles.designMenuList}>
             <Pressable
               onPress={() => setScreenMode('rules')}
               style={({ pressed }) => [
-                styles.rulesMenuButton,
-                pressed && styles.menuButtonPressed,
+                styles.designMenuRow,
+                pressed && styles.designPressed,
               ]}
             >
-              <View style={styles.rulesMenuIcon}>
-                <Text style={styles.rulesMenuIconText}>?</Text>
+              <View style={styles.designRowIcon}>
+                <Text style={styles.designRowIconText}>▤</Text>
               </View>
-              <View style={styles.rulesMenuTextWrap}>
-                <Text style={styles.rulesMenuTitle}>RÈGLES · COMMENT JOUER</Text>
-                <Text style={styles.rulesMenuText}>
-                  Découvre les gestes et l’objectif en 30 secondes.
-                </Text>
+              <Text style={styles.designRowText}>COMMENT JOUER</Text>
+              <Text style={styles.designRowArrow}>›</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setScreenMode('stats')}
+              style={({ pressed }) => [
+                styles.designMenuRow,
+                pressed && styles.designPressed,
+              ]}
+            >
+              <View style={styles.designRowIcon}>
+                <Text style={styles.designRowIconText}>▥</Text>
               </View>
-              <Text style={styles.rulesMenuArrow}>›</Text>
+              <Text style={styles.designRowText}>STATISTIQUES</Text>
+              <Text style={styles.designRowArrow}>›</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.designMenuRow,
+                styles.designMenuRowMuted,
+                pressed && styles.designPressed,
+              ]}
+            >
+              <View style={styles.designRowIcon}>
+                <Text style={styles.designRowIconText}>⚙</Text>
+              </View>
+              <View style={styles.designRowMain}>
+                <Text style={styles.designRowText}>PARAMÈTRES</Text>
+                <Text style={styles.designSoonText}>BIENTÔT</Text>
+              </View>
+              <Text style={styles.designRowArrow}>›</Text>
             </Pressable>
           </View>
 
-          <Text style={styles.menuFooter}>Prototype jouable · V1.0</Text>
+          <Text style={styles.designFooter}>
+            DES ROUTES PLUS SÛRES · UN MEILLEUR DEMAIN
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screenMode === 'stats') {
+    return (
+      <SafeAreaView style={styles.statsSafeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.statsScreen}>
+          <View style={styles.statsHeader}>
+            <Pressable
+              onPress={() => setScreenMode('menu')}
+              style={styles.statsBackButton}
+            >
+              <Text style={styles.statsBackText}>‹ MENU</Text>
+            </Pressable>
+            <View>
+              <Text style={styles.statsEyebrow}>PROGRESSION JOUEUR</Text>
+              <Text style={styles.statsTitle}>Statistiques</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsHeroCard}>
+            <Text style={styles.statsHeroLabel}>MEILLEUR SCORE</Text>
+            <Text style={styles.statsHeroValue}>{playerStats.bestScore}</Text>
+            <Text style={styles.statsHeroUnit}>POINTS</Text>
+          </View>
+
+          <View style={styles.statsGrid}>
+            <View style={styles.statsMetricCard}>
+              <Text style={styles.statsMetricIcon}>▥</Text>
+              <Text style={styles.statsMetricLabel}>NIVEAU MAX</Text>
+              <Text style={styles.statsMetricValue}>{playerStats.bestLevel}</Text>
+            </View>
+            <View style={styles.statsMetricCard}>
+              <Text style={styles.statsMetricIcon}>◆</Text>
+              <Text style={styles.statsMetricLabel}>PARTIES</Text>
+              <Text style={styles.statsMetricValue}>{playerStats.totalGames}</Text>
+            </View>
+            <View style={styles.statsMetricCard}>
+              <Text style={styles.statsMetricIcon}>➜</Text>
+              <Text style={styles.statsMetricLabel}>VOITURES PASSÉES</Text>
+              <Text style={styles.statsMetricValue}>{playerStats.totalPassed}</Text>
+            </View>
+            <View style={styles.statsMetricCard}>
+              <Text style={styles.statsMetricIcon}>★</Text>
+              <Text style={styles.statsMetricLabel}>RECORD</Text>
+              <Text style={styles.statsMetricValue}>{playerStats.bestScore}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.statsHint}>
+            Les statistiques sont enregistrées automatiquement sur cet appareil après chaque partie terminée.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -1047,7 +1219,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V1.0</Text>
+            <Text style={styles.title}>CARREFOUR · V1.1</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable onPress={pauseGame} style={styles.pauseChip}>
@@ -2191,5 +2363,466 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+  designMenuSafeArea: {
+    flex: 1,
+    backgroundColor: '#eaf8ff',
+  },
+  designMenuScroll: {
+    flex: 1,
+    backgroundColor: '#eaf8ff',
+  },
+  designMenuContent: {
+    minHeight: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 22,
+    backgroundColor: '#eaf8ff',
+    overflow: 'hidden',
+  },
+  designSkyGlowOne: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 999,
+    top: -120,
+    right: -100,
+    backgroundColor: 'rgba(56,189,248,0.18)',
+  },
+  designSkyGlowTwo: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    top: 110,
+    left: -120,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  designLogoWrap: {
+    width: '100%',
+    alignItems: 'center',
+    zIndex: 2,
+    marginBottom: 10,
+  },
+  designLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  designLogoText: {
+    color: '#173b63',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+    textShadowColor: 'rgba(255,255,255,0.96)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
+  },
+  designTrafficLight: {
+    width: 28,
+    height: 54,
+    borderRadius: 10,
+    paddingVertical: 5,
+    marginHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1f2937',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  designTrafficDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 99,
+  },
+  designSubtitle: {
+    color: '#244c6a',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  designVersionPill: {
+    marginTop: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.78)',
+    borderWidth: 1,
+    borderColor: '#cce4ee',
+  },
+  designVersionText: {
+    color: '#4293b6',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  designCityCard: {
+    alignSelf: 'center',
+    maxWidth: '100%',
+    borderRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: '#d8f0ca',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.95)',
+    shadowColor: '#2d6478',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+    zIndex: 2,
+  },
+  designCitySky: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#cfefff',
+  },
+  designBuildingLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '31%',
+    height: '31%',
+    padding: 10,
+    backgroundColor: '#f7fbff',
+    borderBottomRightRadius: 22,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#c9e1e8',
+  },
+  designBuildingRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: '31%',
+    height: '31%',
+    padding: 10,
+    alignItems: 'flex-end',
+    backgroundColor: '#f7fbff',
+    borderBottomLeftRadius: 22,
+    borderLeftWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#c9e1e8',
+  },
+  designBuildingWindow: {
+    width: 26,
+    height: 8,
+    borderRadius: 3,
+    marginBottom: 4,
+    backgroundColor: '#99d8ef',
+  },
+  designBuildingSlogan: {
+    color: '#4a7c91',
+    fontSize: 7,
+    fontWeight: '900',
+    lineHeight: 10,
+    marginTop: 4,
+  },
+  designRoadVertical: {
+    position: 'absolute',
+    left: '38%',
+    top: 0,
+    width: '24%',
+    height: '100%',
+    backgroundColor: '#596873',
+  },
+  designRoadHorizontal: {
+    position: 'absolute',
+    left: 0,
+    top: '38%',
+    width: '100%',
+    height: '24%',
+    backgroundColor: '#596873',
+  },
+  designIntersectionCore: {
+    position: 'absolute',
+    left: '38%',
+    top: '38%',
+    width: '24%',
+    height: '24%',
+    backgroundColor: '#657580',
+    borderWidth: 1,
+    borderColor: '#87949d',
+  },
+  designLaneMarkVertical: {
+    position: 'absolute',
+    width: 2,
+    height: '27%',
+    backgroundColor: 'rgba(255,255,255,0.86)',
+  },
+  designLaneMarkHorizontal: {
+    position: 'absolute',
+    height: 2,
+    width: '27%',
+    backgroundColor: 'rgba(255,255,255,0.86)',
+  },
+  designMiniCarVertical: {
+    position: 'absolute',
+    width: 16,
+    height: 31,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#132f3a',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  designMiniCarHorizontal: {
+    position: 'absolute',
+    width: 31,
+    height: 16,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#132f3a',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  designTree: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    backgroundColor: '#58b95e',
+    borderWidth: 5,
+    borderColor: '#8cd878',
+  },
+  designTreeSmall: {
+    position: 'absolute',
+    width: 25,
+    height: 25,
+    borderRadius: 999,
+    backgroundColor: '#5fbf63',
+    borderWidth: 4,
+    borderColor: '#a1e68b',
+  },
+  designPlayButton: {
+    width: '92%',
+    maxWidth: 430,
+    minHeight: 72,
+    marginTop: 13,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    backgroundColor: '#22c55e',
+    borderWidth: 2,
+    borderColor: '#baf7ca',
+    shadowColor: '#15803d',
+    shadowOpacity: 0.30,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 6,
+    zIndex: 2,
+  },
+  designPlayIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  designPlayTriangle: {
+    color: '#22c55e',
+    fontSize: 18,
+    marginLeft: 3,
+  },
+  designPlayText: {
+    color: '#ffffff',
+    fontSize: 27,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  designPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
+  },
+  designMenuList: {
+    width: '88%',
+    maxWidth: 400,
+    marginTop: 12,
+    gap: 8,
+    zIndex: 2,
+  },
+  designMenuRow: {
+    minHeight: 52,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderWidth: 1,
+    borderColor: '#d5e7ed',
+    shadowColor: '#4c7686',
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  designMenuRowMuted: {
+    opacity: 0.92,
+  },
+  designRowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e6f4fb',
+  },
+  designRowIconText: {
+    color: '#1d5b89',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  designRowText: {
+    flex: 1,
+    marginLeft: 12,
+    color: '#1f4c70',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  designRowMain: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  designSoonText: {
+    color: '#94a8b3',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  designRowArrow: {
+    color: '#34739a',
+    fontSize: 28,
+    fontWeight: '500',
+  },
+  designFooter: {
+    color: '#6f9baa',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+    textAlign: 'center',
+    marginTop: 15,
+    zIndex: 2,
+  },
+  statsSafeArea: {
+    flex: 1,
+    backgroundColor: '#edf8fb',
+  },
+  statsScreen: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#edf8fb',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
+  },
+  statsBackButton: {
+    minWidth: 70,
+    minHeight: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe2e8',
+  },
+  statsBackText: {
+    color: '#3f7080',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  statsEyebrow: {
+    color: '#0ea5e9',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  statsTitle: {
+    color: '#173b4a',
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+  statsHeroCard: {
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    backgroundColor: '#0ea5e9',
+    shadowColor: '#0369a1',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  statsHeroLabel: {
+    color: 'rgba(255,255,255,0.80)',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  statsHeroValue: {
+    color: '#ffffff',
+    fontSize: 44,
+    fontWeight: '900',
+    marginTop: 5,
+  },
+  statsHeroUnit: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  statsMetricCard: {
+    width: '48%',
+    minHeight: 118,
+    borderRadius: 18,
+    padding: 14,
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d8e8ec',
+  },
+  statsMetricIcon: {
+    color: '#0ea5e9',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  statsMetricLabel: {
+    color: '#718993',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    marginTop: 10,
+  },
+  statsMetricValue: {
+    color: '#234853',
+    fontSize: 26,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  statsHint: {
+    color: '#718993',
+    fontSize: 10,
+    lineHeight: 15,
+    textAlign: 'center',
+    marginTop: 16,
+    paddingHorizontal: 18,
   }
 });
