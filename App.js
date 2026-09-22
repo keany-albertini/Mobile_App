@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   ImageBackground,
+  Animated,
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -197,20 +198,40 @@ const createCar = (existingCars, geometry, level, id) => {
 
 function RoadScene({ size }) {
   const geometry = useMemo(() => makeGeometry(size), [size]);
+  const sway = useRef(new Animated.Value(0)).current;
   const laneLines = [];
-  const segmentGap = 8;
+  const crosswalks = [];
 
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sway, { toValue: 1, duration: 2400, useNativeDriver: false }),
+        Animated.timing(sway, { toValue: 0, duration: 2400, useNativeDriver: false }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [sway]);
+
+  const treeRotate = sway.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-1.2deg', '1.2deg'],
+  });
+
+  const segmentGap = 10;
   for (let i = 1; i < LANE_COUNT * 2; i += 1) {
     const verticalX =
       geometry.center - geometry.roadHalf + geometry.laneWidth * i;
     const horizontalY =
       geometry.center - geometry.roadHalf + geometry.laneWidth * i;
     const isCenterLine = i === LANE_COUNT;
-    const color = isCenterLine ? '#eab308' : 'rgba(255,255,255,0.27)';
+    const color = isCenterLine
+      ? 'rgba(247,197,72,0.72)'
+      : 'rgba(255,255,255,0.34)';
     const thickness = isCenterLine ? 2 : 1;
 
     laneLines.push(
-      <React.Fragment key={'vertical-' + i}>
+      <React.Fragment key={'v-' + i}>
         <View
           style={[
             styles.laneLine,
@@ -239,7 +260,7 @@ function RoadScene({ size }) {
     );
 
     laneLines.push(
-      <React.Fragment key={'horizontal-' + i}>
+      <React.Fragment key={'h-' + i}>
         <View
           style={[
             styles.laneLine,
@@ -268,9 +289,111 @@ function RoadScene({ size }) {
     );
   }
 
+  const stripeCount = 7;
+  const stripeGap = 3;
+  const stripeW = (geometry.roadWidth - stripeGap * (stripeCount + 1)) / stripeCount;
+  for (let i = 0; i < stripeCount; i += 1) {
+    const across = geometry.center - geometry.roadHalf + stripeGap + i * (stripeW + stripeGap);
+    const acrossHorizontal = geometry.center - geometry.roadHalf + stripeGap + i * (stripeW + stripeGap);
+
+    crosswalks.push(
+      <React.Fragment key={'cw-' + i}>
+        <View style={[styles.crosswalkStripe, { left: across, top: geometry.intersectionMin - 13, width: stripeW, height: 8 }]} />
+        <View style={[styles.crosswalkStripe, { left: across, top: geometry.intersectionMax + 5, width: stripeW, height: 8 }]} />
+        <View style={[styles.crosswalkStripe, { top: acrossHorizontal, left: geometry.intersectionMin - 13, height: stripeW, width: 8 }]} />
+        <View style={[styles.crosswalkStripe, { top: acrossHorizontal, left: geometry.intersectionMax + 5, height: stripeW, width: 8 }]} />
+      </React.Fragment>
+    );
+  }
+
+  const corner = geometry.intersectionMin;
+  const treeSize = Math.max(16, size * 0.045);
+  const buildingInset = Math.max(8, size * 0.018);
+
+  const renderCorner = (key, position, flipX = false, flipY = false) => (
+    <View key={key} style={[styles.cityCorner, { width: corner, height: corner }, position]}>
+      <View
+        style={[
+          styles.cityBuilding,
+          {
+            width: corner * 0.58,
+            height: corner * 0.54,
+            left: flipX ? undefined : buildingInset,
+            right: flipX ? buildingInset : undefined,
+            top: flipY ? undefined : buildingInset,
+            bottom: flipY ? buildingInset : undefined,
+          },
+        ]}
+      >
+        <View style={styles.cityRoofLip} />
+        <View style={styles.cityWindowRow}>
+          <View style={styles.cityWindow} />
+          <View style={styles.cityWindow} />
+          <View style={styles.cityWindow} />
+        </View>
+        <View style={styles.cityWindowRow}>
+          <View style={styles.cityWindow} />
+          <View style={styles.cityWindow} />
+          <View style={styles.cityWindow} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.cafeAwning,
+          {
+            left: flipX ? undefined : buildingInset,
+            right: flipX ? buildingInset : undefined,
+            top: flipY ? undefined : corner * 0.56,
+            bottom: flipY ? corner * 0.56 : undefined,
+          },
+        ]}
+      />
+
+      <Animated.View
+        style={[
+          styles.cityTree,
+          {
+            width: treeSize,
+            height: treeSize,
+            borderRadius: treeSize,
+            left: flipX ? corner * 0.16 : corner * 0.69,
+            top: flipY ? corner * 0.16 : corner * 0.69,
+            transform: [{ rotate: treeRotate }],
+          },
+        ]}
+      >
+        <View style={styles.cityTreeCore} />
+      </Animated.View>
+
+      <View
+        style={[
+          styles.cityPlanter,
+          {
+            left: flipX ? corner * 0.65 : corner * 0.12,
+            top: flipY ? corner * 0.7 : corner * 0.14,
+          },
+        ]}
+      />
+    </View>
+  );
+
+  const renderSignal = (key, left, top, green) => (
+    <View key={key} style={[styles.trafficSignal, { left, top }]}>
+      <View style={[styles.signalDot, { backgroundColor: green ? '#58202b' : '#ff3b46' }]} />
+      <View style={[styles.signalDot, { backgroundColor: '#5a4b20' }]} />
+      <View style={[styles.signalDot, { backgroundColor: green ? '#35df78' : '#173b28' }]} />
+    </View>
+  );
+
   return (
     <View style={[styles.roadScene, { width: size, height: size }]}>
-      <View style={[styles.grass, StyleSheet.absoluteFill]} />
+      <View style={[styles.cityGround, StyleSheet.absoluteFill]} />
+
+      {renderCorner('tl', { left: 0, top: 0 }, false, false)}
+      {renderCorner('tr', { right: 0, top: 0 }, true, false)}
+      {renderCorner('bl', { left: 0, bottom: 0 }, false, true)}
+      {renderCorner('br', { right: 0, bottom: 0 }, true, true)}
 
       <View
         style={[
@@ -283,7 +406,6 @@ function RoadScene({ size }) {
           },
         ]}
       />
-
       <View
         style={[
           styles.road,
@@ -296,7 +418,28 @@ function RoadScene({ size }) {
         ]}
       />
 
-      {laneLines}
+      <View
+        style={[
+          styles.roadSheen,
+          {
+            left: geometry.center - geometry.roadWidth * 0.13,
+            top: 0,
+            width: geometry.roadWidth * 0.26,
+            height: size,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.roadSheen,
+          {
+            left: 0,
+            top: geometry.center - geometry.roadWidth * 0.13,
+            width: size,
+            height: geometry.roadWidth * 0.26,
+          },
+        ]}
+      />
 
       <View
         style={[
@@ -310,143 +453,21 @@ function RoadScene({ size }) {
         ]}
       />
 
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.center - geometry.roadHalf,
-            top: geometry.intersectionMin - 3,
-            width: geometry.roadHalf,
-            height: 4,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.center,
-            top: geometry.intersectionMax - 1,
-            width: geometry.roadHalf,
-            height: 4,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.intersectionMin - 3,
-            top: geometry.center,
-            width: 4,
-            height: geometry.roadHalf,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.intersectionMax - 1,
-            top: geometry.center - geometry.roadHalf,
-            width: 4,
-            height: geometry.roadHalf,
-          },
-        ]}
-      />
+      {laneLines}
+      {crosswalks}
 
-      <Text
-        style={[
-          styles.roadWord,
-          {
-            left: geometry.center - geometry.roadHalf + 5,
-            top: geometry.intersectionMin - 34,
-            transform: [{ rotate: '90deg' }],
-          },
-        ]}
-      >
-        STOP
-      </Text>
-      <Text
-        style={[
-          styles.roadWord,
-          {
-            left: geometry.center + 6,
-            top: geometry.intersectionMax + 10,
-            transform: [{ rotate: '-90deg' }],
-          },
-        ]}
-      >
-        STOP
-      </Text>
-      <Text
-        style={[
-          styles.yieldWord,
-          {
-            left: geometry.intersectionMin - 60,
-            top: geometry.center + 8,
-          },
-        ]}
-      >
-        CÉDEZ
-      </Text>
-      <Text
-        style={[
-          styles.yieldWord,
-          {
-            left: geometry.intersectionMax + 10,
-            top: geometry.center - 30,
-            transform: [{ rotate: '180deg' }],
-          },
-        ]}
-      >
-        CÉDEZ
-      </Text>
+      <View style={[styles.stopLine, { left: geometry.center - geometry.roadHalf, top: geometry.intersectionMin - 3, width: geometry.roadHalf, height: 3 }]} />
+      <View style={[styles.stopLine, { left: geometry.center, top: geometry.intersectionMax, width: geometry.roadHalf, height: 3 }]} />
+      <View style={[styles.stopLine, { left: geometry.intersectionMin - 3, top: geometry.center, width: 3, height: geometry.roadHalf }]} />
+      <View style={[styles.stopLine, { left: geometry.intersectionMax, top: geometry.center - geometry.roadHalf, width: 3, height: geometry.roadHalf }]} />
 
-      <View
-        style={[
-          styles.cornerPatch,
-          {
-            left: 0,
-            top: 0,
-            width: geometry.intersectionMin,
-            height: geometry.intersectionMin,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.cornerPatch,
-          {
-            right: 0,
-            top: 0,
-            width: size - geometry.intersectionMax,
-            height: geometry.intersectionMin,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.cornerPatch,
-          {
-            left: 0,
-            bottom: 0,
-            width: geometry.intersectionMin,
-            height: size - geometry.intersectionMax,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.cornerPatch,
-          {
-            right: 0,
-            bottom: 0,
-            width: size - geometry.intersectionMax,
-            height: size - geometry.intersectionMax,
-          },
-        ]}
-      />
+      {renderSignal('s1', geometry.intersectionMin - 15, geometry.intersectionMin - 18, false)}
+      {renderSignal('s2', geometry.intersectionMax + 4, geometry.intersectionMin - 18, true)}
+      {renderSignal('s3', geometry.intersectionMin - 15, geometry.intersectionMax + 3, true)}
+      {renderSignal('s4', geometry.intersectionMax + 4, geometry.intersectionMax + 3, false)}
+
+      <Text style={[styles.roadWord, { left: geometry.center - geometry.roadHalf + 4, top: geometry.intersectionMin - 34, transform: [{ rotate: '90deg' }] }]}>STOP</Text>
+      <Text style={[styles.roadWord, { left: geometry.center + 5, top: geometry.intersectionMax + 13, transform: [{ rotate: '-90deg' }] }]}>STOP</Text>
     </View>
   );
 }
@@ -458,14 +479,47 @@ function Car({ car, size, onGesture, crashed }) {
   const horizontal = !isVertical(car.direction);
   const width = horizontal ? geometry.carLength : geometry.carWidth;
   const height = horizontal ? geometry.carWidth : geometry.carLength;
+  const sign = getAxisSign(car.direction);
   const stateColor =
     car.speedState === 'stopped'
-      ? '#ef4444'
+      ? '#ff525d'
       : car.speedState === 'slow'
-        ? '#f59e0b'
+        ? '#ffbf43'
         : car.speedState === 'fast'
-          ? '#22d3ee'
-          : 'rgba(255,255,255,0.72)';
+          ? '#49d7ff'
+          : 'rgba(255,255,255,0.78)';
+
+  const frontGlowStyle = horizontal
+    ? {
+        width: 4,
+        height: Math.max(8, height * 0.54),
+        top: height * 0.23,
+        left: sign > 0 ? undefined : 0,
+        right: sign > 0 ? 0 : undefined,
+      }
+    : {
+        width: Math.max(8, width * 0.54),
+        height: 4,
+        left: width * 0.23,
+        top: sign > 0 ? undefined : 0,
+        bottom: sign > 0 ? 0 : undefined,
+      };
+
+  const rearGlowStyle = horizontal
+    ? {
+        width: 3,
+        height: Math.max(8, height * 0.48),
+        top: height * 0.26,
+        right: sign > 0 ? undefined : 0,
+        left: sign > 0 ? 0 : undefined,
+      }
+    : {
+        width: Math.max(8, width * 0.48),
+        height: 3,
+        left: width * 0.26,
+        bottom: sign > 0 ? undefined : 0,
+        top: sign > 0 ? 0 : undefined,
+      };
 
   return (
     <View
@@ -488,42 +542,86 @@ function Car({ car, size, onGesture, crashed }) {
       style={[
         styles.carTouch,
         {
-          left: center.x - Math.max(width, 40) / 2,
-          top: center.y - Math.max(height, 40) / 2,
-          width: Math.max(width, 40),
-          height: Math.max(height, 40),
+          left: center.x - Math.max(width, 42) / 2,
+          top: center.y - Math.max(height, 42) / 2,
+          width: Math.max(width, 42),
+          height: Math.max(height, 42),
         },
       ]}
     >
+      {car.speedState === 'fast' ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.motionTrail,
+            horizontal
+              ? { width: width * 1.45, height: height * 0.62 }
+              : { width: width * 0.62, height: height * 1.45 },
+          ]}
+        />
+      ) : null}
+
+      <View
+        pointerEvents="none"
+        style={[
+          styles.carShadow,
+          {
+            width: width * 0.95,
+            height: height * 0.95,
+            borderRadius: Math.max(5, Math.min(width, height) * 0.28),
+          },
+        ]}
+      />
+
       <View
         style={[
           styles.carBody,
           {
             width,
             height,
-            backgroundColor: crashed ? '#ef4444' : car.color,
+            backgroundColor: crashed ? '#ff3648' : car.color,
             borderColor: stateColor,
           },
         ]}
       >
+        <View style={styles.carPaintHighlight} />
+
         <View
           style={[
             styles.carWindow,
             horizontal
               ? {
                   width: width * 0.34,
-                  height: height * 0.62,
+                  height: height * 0.66,
                   left: width * 0.33,
-                  top: height * 0.19,
+                  top: height * 0.17,
                 }
               : {
-                  width: width * 0.62,
+                  width: width * 0.66,
                   height: height * 0.34,
-                  left: width * 0.19,
+                  left: width * 0.17,
                   top: height * 0.33,
                 },
           ]}
         />
+
+        <View
+          style={[
+            styles.carRoofPanel,
+            horizontal
+              ? { width: width * 0.18, height: height * 0.58, left: width * 0.41, top: height * 0.21 }
+              : { width: width * 0.58, height: height * 0.18, left: width * 0.21, top: height * 0.41 },
+          ]}
+        />
+
+        <View style={[styles.carFrontGlow, frontGlowStyle]} />
+        <View style={[styles.carRearGlow, rearGlowStyle]} />
+
+        <View style={[styles.carWheel, horizontal ? { left: width * 0.18, top: -2 } : { left: -2, top: height * 0.18 }]} />
+        <View style={[styles.carWheel, horizontal ? { right: width * 0.18, top: -2 } : { right: -2, top: height * 0.18 }]} />
+        <View style={[styles.carWheel, horizontal ? { left: width * 0.18, bottom: -2 } : { left: -2, bottom: height * 0.18 }]} />
+        <View style={[styles.carWheel, horizontal ? { right: width * 0.18, bottom: -2 } : { right: -2, bottom: height * 0.18 }]} />
+
         {car.stopRequested && car.speedState !== 'stopped' ? (
           <View style={styles.stopRequestedDot} />
         ) : null}
@@ -1407,13 +1505,13 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <View style={styles.screen}>
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V1.3</Text>
+            <Text style={styles.title}>CARREFOUR · V1.4</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable onPress={pauseGame} style={styles.pauseChip}>
@@ -1557,14 +1655,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4fbfc',
+    backgroundColor: '#061a2b',
   },
   screen: {
     flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#f4fbfc',
+    backgroundColor: '#0a2338',
   },
   header: {
     flexDirection: 'row',
@@ -1573,17 +1671,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   eyebrow: {
-    color: '#38bdf8',
+    color: '#79d8ff',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.8,
   },
   title: {
-    color: '#16343f',
+    color: '#ffffff',
     fontSize: 22,
     fontWeight: '900',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.32)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
   },
   versionBadge: {
     minWidth: 44,
@@ -1607,35 +1708,42 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 7,
-    borderRadius: 10,
-    backgroundColor: '#f8fcfd',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 13,
+    backgroundColor: 'rgba(9,35,57,0.96)',
     borderWidth: 1,
-    borderColor: '#bfd8df',
+    borderColor: 'rgba(121,216,255,0.34)',
+    shadowColor: '#00111f',
+    shadowOpacity: 0.24,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   statLabel: {
-    color: '#607b84',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    color: '#8ebbd1',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.9,
   },
   statValue: {
-    color: '#16343f',
-    fontSize: 17,
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: '900',
     marginTop: 2,
   },
   progressTrack: {
-    height: 4,
+    height: 6,
     borderRadius: 99,
     overflow: 'hidden',
-    backgroundColor: '#c8dfe5',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   progressFill: {
     height: '100%',
     borderRadius: 99,
-    backgroundColor: '#38bdf8',
+    backgroundColor: '#39d98a',
   },
   progressCaption: {
     color: '#5e7881',
@@ -1647,11 +1755,16 @@ const styles = StyleSheet.create({
   board: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 18,
+    borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#d8efb7',
-    borderWidth: 1,
-    borderColor: '#c9e2dc',
+    backgroundColor: '#b9d2c4',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.78)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
   sceneLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -1672,11 +1785,15 @@ const styles = StyleSheet.create({
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#77838d',
+    backgroundColor: '#4a535d',
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#828e98',
+    backgroundColor: '#505a64',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   laneLine: {
     position: 'absolute',
@@ -1684,8 +1801,11 @@ const styles = StyleSheet.create({
   },
   stopLine: {
     position: 'absolute',
-    backgroundColor: '#f8fafc',
-    opacity: 0.9,
+    backgroundColor: '#ffffff',
+    opacity: 0.92,
+    shadowColor: '#ffffff',
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
   },
   roadWord: {
     position: 'absolute',
@@ -1708,21 +1828,182 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   carBody: {
-    borderRadius: 6,
+    borderRadius: 7,
     borderWidth: 1.5,
-    overflow: 'hidden',
+    overflow: 'visible',
     shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowOpacity: 0.36,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   carWindow: {
     position: 'absolute',
-    borderRadius: 3,
-    backgroundColor: 'rgba(8,19,26,0.64)',
+    borderRadius: 4,
+    backgroundColor: 'rgba(9,24,35,0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(191,232,255,0.54)',
+  },
+  cityGround: {
+    backgroundColor: '#dbe9dc',
+  },
+  cityCorner: {
+    position: 'absolute',
+    overflow: 'hidden',
+    backgroundColor: '#d9ded6',
+    borderColor: 'rgba(100,122,132,0.18)',
+    borderWidth: 1,
+  },
+  cityBuilding: {
+    position: 'absolute',
+    borderRadius: 7,
+    padding: 4,
+    backgroundColor: '#d7e1e7',
+    borderWidth: 1,
+    borderColor: '#f7fbff',
+    shadowColor: '#263640',
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    shadowOffset: { width: 2, height: 3 },
+    elevation: 4,
+  },
+  cityRoofLip: {
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: '#8ca7b5',
+    marginBottom: 3,
+  },
+  cityWindowRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 2,
+  },
+  cityWindow: {
+    flex: 1,
+    height: 5,
+    borderRadius: 2,
+    backgroundColor: '#73b7d5',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+  },
+  cafeAwning: {
+    position: 'absolute',
+    width: 34,
+    height: 8,
+    borderRadius: 3,
+    backgroundColor: '#d95b52',
+    borderWidth: 1,
+    borderColor: '#fff1e8',
+  },
+  cityTree: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#57a85b',
+    borderWidth: 4,
+    borderColor: '#82c973',
+    shadowColor: '#244d28',
+    shadowOpacity: 0.26,
+    shadowRadius: 4,
+    shadowOffset: { width: 1, height: 3 },
+    elevation: 4,
+  },
+  cityTreeCore: {
+    width: '42%',
+    height: '42%',
+    borderRadius: 999,
+    backgroundColor: '#2f7c3b',
+  },
+  cityPlanter: {
+    position: 'absolute',
+    width: 18,
+    height: 7,
+    borderRadius: 3,
+    backgroundColor: '#6f925e',
+    borderWidth: 1,
+    borderColor: '#dfead6',
+  },
+  roadSheen: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  crosswalkStripe: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.93)',
+    borderRadius: 1,
+    shadowColor: '#ffffff',
+    shadowOpacity: 0.14,
+    shadowRadius: 2,
+  },
+  trafficSignal: {
+    position: 'absolute',
+    width: 10,
+    height: 22,
+    borderRadius: 4,
+    paddingVertical: 2,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#18212a',
+    borderWidth: 1,
+    borderColor: '#465563',
+    zIndex: 5,
+  },
+  signalDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 99,
+  },
+  motionTrail: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(125,211,252,0.14)',
+    shadowColor: '#38bdf8',
+    shadowOpacity: 0.30,
+    shadowRadius: 7,
+  },
+  carShadow: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    transform: [{ translateX: 1 }, { translateY: 3 }],
+  },
+  carPaintHighlight: {
+    position: 'absolute',
+    left: '12%',
+    right: '12%',
+    top: 2,
+    height: 2,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,255,255,0.48)',
+  },
+  carRoofPanel: {
+    position: 'absolute',
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  carFrontGlow: {
+    position: 'absolute',
+    borderRadius: 99,
+    backgroundColor: '#f7fbff',
+    shadowColor: '#dff7ff',
+    shadowOpacity: 0.90,
+    shadowRadius: 3,
+  },
+  carRearGlow: {
+    position: 'absolute',
+    borderRadius: 99,
+    backgroundColor: '#ff3d4f',
+    shadowColor: '#ff3d4f',
+    shadowOpacity: 0.55,
+    shadowRadius: 2,
+  },
+  carWheel: {
+    position: 'absolute',
+    width: 5,
+    height: 5,
+    borderRadius: 2,
+    backgroundColor: '#17212a',
+    borderWidth: 1,
+    borderColor: '#05090c',
   },
   stopRequestedDot: {
     position: 'absolute',
@@ -1806,12 +2087,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   actionBar: {
-    minHeight: 42,
-    marginTop: 9,
-    borderRadius: 12,
-    backgroundColor: '#f4fafb',
+    minHeight: 44,
+    marginTop: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8,31,50,0.95)',
     borderWidth: 1,
-    borderColor: '#b9d6dd',
+    borderColor: 'rgba(121,216,255,0.28)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -1825,9 +2106,9 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    color: '#38525c',
+    color: '#d9f2ff',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   controlsCard: {
     marginTop: 9,
@@ -2136,15 +2417,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   quickControlText: {
-    color: '#55727c',
+    color: '#b9d8e8',
     fontSize: 9,
-    fontWeight: '800',
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    fontWeight: '900',
+    backgroundColor: 'rgba(8,31,50,0.82)',
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#d3e5e9',
+    borderColor: 'rgba(121,216,255,0.20)',
   },
   headerActions: {
     flexDirection: 'row',
@@ -2158,17 +2439,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#fff4d8',
+    backgroundColor: 'rgba(8,31,50,0.92)',
     borderWidth: 1,
-    borderColor: '#f1d28a',
+    borderColor: 'rgba(121,216,255,0.30)',
   },
   pauseChipIcon: {
-    color: '#b7791f',
+    color: '#79d8ff',
     fontSize: 11,
     fontWeight: '900',
   },
   pauseChipText: {
-    color: '#8a5a12',
+    color: '#d9f2ff',
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.7,
@@ -2182,12 +2463,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   levelInfoText: {
-    color: '#66818a',
+    color: '#a8c9d9',
     fontSize: 9,
     fontWeight: '800',
   },
   levelInfoBoost: {
-    color: '#0ea5e9',
+    color: '#42e28d',
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 1,
