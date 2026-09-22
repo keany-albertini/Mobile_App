@@ -9,7 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const CAMERA_SCALE = 0.92;
+const CAMERA_SCALE = 0.78;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -45,11 +45,11 @@ const isVertical = (direction) =>
   direction === 'north' || direction === 'south';
 
 const makeGeometry = (size) => {
-  const roadWidth = size * 0.62;
+  const roadWidth = size * 0.56;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
-  const carLength = laneWidth * 1.12;
-  const carWidth = laneWidth * 0.56;
+  const carLength = laneWidth * 1.23;
+  const carWidth = laneWidth * 0.62;
   const center = size / 2;
 
   return {
@@ -809,10 +809,10 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.2</Text>
+            <Text style={styles.title}>CARREFOUR · V0.3</Text>
           </View>
           <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.2</Text>
+            <Text style={styles.versionBadgeText}>0.3</Text>
           </View>
         </View>
 
@@ -892,7 +892,7 @@ export default function App() {
                     pressed && styles.primaryButtonPressed,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.2</Text>
+                  <Text style={styles.primaryButtonText}>DÉMARRER V0.3</Text>
                 </Pressable>
               </View>
             </View>
