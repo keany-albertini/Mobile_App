@@ -892,7 +892,7 @@ export default function App() {
       <SafeAreaView style={styles.fullMenuSafeArea}>
         <StatusBar style="light" />
         <ImageBackground
-          source={{ uri: '/menu-v12.jpg' }}
+          source={{ uri: '/menu-v13.jpg' }}
           resizeMode="cover"
           style={styles.fullMenuBackground}
           imageStyle={styles.fullMenuBackgroundImage}
@@ -1206,7 +1206,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V1.2</Text>
+            <Text style={styles.title}>CARREFOUR · V1.3</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable onPress={pauseGame} style={styles.pauseChip}>
@@ -2831,15 +2831,15 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: '30%',
-    backgroundColor: 'rgba(4, 54, 104, 0.08)',
+    backgroundColor: 'rgba(4, 32, 64, 0.18)',
   },
   fullMenuShadeBottom: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '43%',
-    backgroundColor: 'rgba(5, 42, 67, 0.10)',
+    height: '48%',
+    backgroundColor: 'rgba(3, 17, 31, 0.30)',
   },
   fullMenuContent: {
     flex: 1,
@@ -2862,7 +2862,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '900',
     letterSpacing: -2,
-    textShadowColor: '#0759a8',
+    textShadowColor: '#07111e',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 2,
   },
@@ -2895,7 +2895,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: 'rgba(8, 58, 128, 0.92)',
+    backgroundColor: 'rgba(7, 35, 78, 0.90)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.86)',
   },
@@ -2919,9 +2919,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     overflow: 'hidden',
-    backgroundColor: '#17c942',
+    backgroundColor: '#0ca935',
     borderWidth: 3,
-    borderColor: '#b7ffbe',
+    borderColor: 'rgba(200,255,215,0.82)',
     shadowColor: '#0d7a25',
     shadowOpacity: 0.36,
     shadowRadius: 12,
@@ -2943,12 +2943,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0b1220',
     borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   fullMenuPlayTriangle: {
-    color: '#18c943',
+    color: '#41ef72',
     fontSize: 20,
     marginLeft: 3,
   },
@@ -2967,10 +2967,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    backgroundColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: 'rgba(9,18,31,0.88)',
     borderWidth: 2,
-    borderColor: '#dceeff',
-    shadowColor: '#174d7a',
+    borderColor: 'rgba(125,211,252,0.42)',
+    shadowColor: '#03111f',
     shadowOpacity: 0.22,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 5 },
@@ -2982,17 +2982,17 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#eaf4ff',
+    backgroundColor: 'rgba(14,38,64,0.94)',
   },
   fullMenuSecondaryIconText: {
-    color: '#0f4f9c',
+    color: '#7dd3fc',
     fontSize: 20,
     fontWeight: '900',
   },
   fullMenuSecondaryText: {
     flex: 1,
     marginLeft: 14,
-    color: '#123e78',
+    color: '#e9f5ff',
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.4,
@@ -3002,19 +3002,19 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   fullMenuSecondaryMainText: {
-    color: '#123e78',
+    color: '#e9f5ff',
     fontSize: 15,
     fontWeight: '900',
   },
   fullMenuSoon: {
-    color: '#8da3b7',
+    color: '#9fb6ca',
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 1,
     marginTop: 1,
   },
   fullMenuChevron: {
-    color: '#1687d8',
+    color: '#62c8ff',
     fontSize: 31,
     fontWeight: '600',
     marginLeft: 10,
