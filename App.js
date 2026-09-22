@@ -751,7 +751,20 @@ export default function App() {
 
       if (Math.abs(longitudinal) > 14) {
         if (currentCar.speedState === 'stopped') {
-          setLastAction('Appuie sur la voiture pour la faire repartir.');
+          if (longitudinal > 0) {
+            const nextCars = carsRef.current.map((car) =>
+              car.id === carId
+                ? {
+                    ...car,
+                    speedState: 'fast',
+                    stopRequested: false,
+                  }
+                : car
+            );
+
+            setLastAction('La voiture repart en accéléré.');
+            syncCars(nextCars);
+          }
           return;
         }
 
@@ -783,10 +796,10 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.5</Text>
+            <Text style={styles.title}>CARREFOUR · V0.6</Text>
           </View>
           <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.5</Text>
+            <Text style={styles.versionBadgeText}>0.6</Text>
           </View>
         </View>
 
@@ -878,7 +891,7 @@ export default function App() {
                     pressed && styles.primaryButtonPressed,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.5</Text>
+                  <Text style={styles.primaryButtonText}>DÉMARRER V0.6</Text>
                 </Pressable>
               </View>
             </View>
