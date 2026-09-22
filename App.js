@@ -236,7 +236,7 @@ function RoadScene({ size }) {
       geometry.center - geometry.roadHalf + geometry.laneWidth * i;
     const isCenterLine = i === LANE_COUNT;
     const color = isCenterLine
-      ? 'rgba(244, 200, 76, 0.72)'
+      ? 'rgba(255,255,255,0.52)'
       : 'rgba(255,255,255,0.30)';
     const thickness = isCenterLine ? 2 : 1;
 
@@ -404,6 +404,35 @@ function RoadScene({ size }) {
 
       <View
         style={[
+          styles.cornerSideBuilding,
+          {
+            width: cornerSize * 0.31,
+            height: cornerSize * 0.31,
+            left: rightSide ? cornerSize * 0.08 : undefined,
+            right: rightSide ? undefined : cornerSize * 0.08,
+            top: bottomSide ? cornerSize * 0.08 : undefined,
+            bottom: bottomSide ? undefined : cornerSize * 0.08,
+          },
+        ]}
+      >
+        <View style={styles.sideWindow} />
+        <View style={styles.sideWindow} />
+      </View>
+
+      <View
+        style={[
+          styles.cornerSidewalk,
+          {
+            left: rightSide ? 0 : undefined,
+            right: rightSide ? undefined : 0,
+            top: bottomSide ? 0 : undefined,
+            bottom: bottomSide ? undefined : 0,
+          },
+        ]}
+      />
+
+      <View
+        style={[
           styles.cornerPlanter,
           {
             left: rightSide ? undefined : cornerSize * 0.12,
@@ -413,6 +442,18 @@ function RoadScene({ size }) {
           },
         ]}
       />
+
+      <View
+        style={[
+          styles.streetLamp,
+          {
+            left: rightSide ? cornerSize * 0.74 : cornerSize * 0.18,
+            top: bottomSide ? cornerSize * 0.18 : cornerSize * 0.74,
+          },
+        ]}
+      >
+        <View style={styles.streetLampHead} />
+      </View>
 
       <Animated.View
         style={[
@@ -491,6 +532,13 @@ function RoadScene({ size }) {
 
       {laneLines}
 
+      <View style={[styles.asphaltSeam, { left: geometry.center - geometry.roadHalf + geometry.roadWidth * 0.26, top: 0, width: 1, height: size }]} />
+      <View style={[styles.asphaltSeam, { left: geometry.center + geometry.roadWidth * 0.21, top: 0, width: 1, height: size }]} />
+      <View style={[styles.asphaltSeam, { top: geometry.center - geometry.roadHalf + geometry.roadWidth * 0.28, left: 0, height: 1, width: size }]} />
+      <View style={[styles.asphaltSeam, { top: geometry.center + geometry.roadWidth * 0.18, left: 0, height: 1, width: size }]} />
+      <View style={[styles.asphaltPatch, { left: geometry.center - geometry.roadHalf + 8, top: size * 0.12, width: geometry.roadWidth * 0.34, height: 7 }]} />
+      <View style={[styles.asphaltPatch, { left: size * 0.12, top: geometry.center + geometry.roadHalf - 14, width: 8, height: geometry.roadWidth * 0.28 }]} />
+
       <View
         style={[
           styles.intersection,
@@ -558,8 +606,11 @@ function Car({ car, size, onGesture, crashed }) {
   const geometry = useMemo(() => makeGeometry(size), [size]);
   const center = getCarCenter(car, geometry);
   const horizontal = !isVertical(car.direction);
+  const sign = getAxisSign(car.direction);
   const width = horizontal ? geometry.carLength : geometry.carWidth;
   const height = horizontal ? geometry.carWidth : geometry.carLength;
+  const visualWidth = width * 1.05;
+  const visualHeight = height * 1.05;
   const stateColor =
     car.speedState === 'stopped'
       ? '#ef4444'
@@ -567,7 +618,17 @@ function Car({ car, size, onGesture, crashed }) {
         ? '#f59e0b'
         : car.speedState === 'fast'
           ? '#22d3ee'
-          : 'rgba(255,255,255,0.74)';
+          : 'rgba(255,255,255,0.70)';
+
+  const lightAxis = horizontal
+    ? {
+        front: sign > 0 ? { right: 1 } : { left: 1 },
+        rear: sign > 0 ? { left: 1 } : { right: 1 },
+      }
+    : {
+        front: sign > 0 ? { bottom: 1 } : { top: 1 },
+        rear: sign > 0 ? { top: 1 } : { bottom: 1 },
+      };
 
   return (
     <View
@@ -597,14 +658,34 @@ function Car({ car, size, onGesture, crashed }) {
         },
       ]}
     >
+      {car.speedState === 'fast' ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.speedTrail,
+            horizontal
+              ? {
+                  width: visualWidth * 1.6,
+                  height: visualHeight * 0.56,
+                  left: sign > 0 ? -visualWidth * 0.95 : visualWidth * 0.35,
+                }
+              : {
+                  width: visualWidth * 0.56,
+                  height: visualHeight * 1.6,
+                  top: sign > 0 ? -visualHeight * 0.95 : visualHeight * 0.35,
+                },
+          ]}
+        />
+      ) : null}
+
       <View
         pointerEvents="none"
         style={[
           styles.carGroundShadow,
           {
-            width: width * 0.92,
-            height: height * 0.92,
-            borderRadius: 6,
+            width: visualWidth * 0.92,
+            height: visualHeight * 0.92,
+            borderRadius: 7,
           },
         ]}
       />
@@ -613,61 +694,94 @@ function Car({ car, size, onGesture, crashed }) {
         style={[
           styles.carBody,
           {
-            width,
-            height,
+            width: visualWidth,
+            height: visualHeight,
             backgroundColor: crashed ? '#ef4444' : car.color,
             borderColor: stateColor,
           },
         ]}
       >
         <View style={styles.carTopShine} />
+        <View style={styles.carBodyShade} />
 
         <View
           style={[
             styles.carWindow,
             horizontal
               ? {
-                  width: width * 0.34,
-                  height: height * 0.62,
-                  left: width * 0.33,
-                  top: height * 0.19,
+                  width: visualWidth * 0.34,
+                  height: visualHeight * 0.64,
+                  left: visualWidth * 0.33,
+                  top: visualHeight * 0.18,
                 }
               : {
-                  width: width * 0.62,
-                  height: height * 0.34,
-                  left: width * 0.19,
-                  top: height * 0.33,
+                  width: visualWidth * 0.64,
+                  height: visualHeight * 0.34,
+                  left: visualWidth * 0.18,
+                  top: visualHeight * 0.33,
                 },
           ]}
         />
 
         <View
           style={[
-            styles.carRoof,
+            styles.carHood,
             horizontal
               ? {
-                  width: width * 0.17,
-                  height: height * 0.52,
-                  left: width * 0.415,
-                  top: height * 0.24,
+                  width: visualWidth * 0.23,
+                  height: visualHeight * 0.72,
+                  top: visualHeight * 0.14,
+                  ...(sign > 0 ? { right: 2 } : { left: 2 }),
                 }
               : {
-                  width: width * 0.52,
-                  height: height * 0.17,
-                  left: width * 0.24,
-                  top: height * 0.415,
+                  width: visualWidth * 0.72,
+                  height: visualHeight * 0.23,
+                  left: visualWidth * 0.14,
+                  ...(sign > 0 ? { bottom: 2 } : { top: 2 }),
                 },
           ]}
         />
 
         <View
           style={[
-            styles.carBumper,
+            styles.carTrunk,
             horizontal
-              ? { width: 2, height: '54%', right: 1, top: '23%' }
-              : { height: 2, width: '54%', bottom: 1, left: '23%' },
+              ? {
+                  width: visualWidth * 0.16,
+                  height: visualHeight * 0.68,
+                  top: visualHeight * 0.16,
+                  ...(sign > 0 ? { left: 2 } : { right: 2 }),
+                }
+              : {
+                  width: visualWidth * 0.68,
+                  height: visualHeight * 0.16,
+                  left: visualWidth * 0.16,
+                  ...(sign > 0 ? { top: 2 } : { bottom: 2 }),
+                },
           ]}
         />
+
+        <View
+          style={[
+            styles.frontLight,
+            horizontal
+              ? { width: 2, height: '44%', top: '28%', ...lightAxis.front }
+              : { height: 2, width: '44%', left: '28%', ...lightAxis.front },
+          ]}
+        />
+        <View
+          style={[
+            styles.rearLight,
+            horizontal
+              ? { width: 2, height: '40%', top: '30%', ...lightAxis.rear }
+              : { height: 2, width: '40%', left: '30%', ...lightAxis.rear },
+          ]}
+        />
+
+        <View style={[styles.wheelMark, horizontal ? { left: '17%', top: -2 } : { left: -2, top: '17%' }]} />
+        <View style={[styles.wheelMark, horizontal ? { right: '17%', top: -2 } : { right: -2, top: '17%' }]} />
+        <View style={[styles.wheelMark, horizontal ? { left: '17%', bottom: -2 } : { left: -2, bottom: '17%' }]} />
+        <View style={[styles.wheelMark, horizontal ? { right: '17%', bottom: -2 } : { right: -2, bottom: '17%' }]} />
 
         {car.stopRequested && car.speedState !== 'stopped' ? (
           <View style={styles.stopRequestedDot} />
@@ -1555,46 +1669,6 @@ export default function App() {
       <StatusBar style="dark" />
 
       <View style={styles.screen}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V1.4</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable onPress={pauseGame} style={styles.pauseChip}>
-              <Text style={styles.pauseChipIcon}>Ⅱ</Text>
-              <Text style={styles.pauseChipText}>PAUSE</Text>
-            </Pressable>
-            <Pressable onPress={returnToMenu} style={styles.menuChip}>
-              <Text style={styles.menuChipText}>MENU</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>NIVEAU</Text>
-            <Text style={styles.statValue}>{level}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>SCORE</Text>
-            <Text style={styles.statValue}>{score}</Text>
-          </View>
-        </View>
-
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: (levelProgress * 100).toFixed(1) + '%' },
-            ]}
-          />
-        </View>
-        <View style={styles.levelInfoRow}>
-          <Text style={styles.levelInfoText}>Niveau {level}</Text>
-          <Text style={styles.levelInfoBoost}>TRAFIC +</Text>
-        </View>
-
         <View style={[styles.board, { width: boardSize, height: boardSize }]}>
           <View pointerEvents="box-none" style={styles.sceneLayer}>
             <RoadScene size={boardSize} />
@@ -1610,6 +1684,46 @@ export default function App() {
             ))}
           </View>
 
+          <View pointerEvents="box-none" style={styles.gameHud}>
+            <View style={styles.gameHudTop}>
+              <View style={styles.gameBrandBadge}>
+                <View style={styles.gameSignalMini}>
+                  <View style={[styles.gameSignalMiniDot, { backgroundColor: '#ef4444' }]} />
+                  <View style={[styles.gameSignalMiniDot, { backgroundColor: '#facc15' }]} />
+                  <View style={[styles.gameSignalMiniDot, { backgroundColor: '#22c55e' }]} />
+                </View>
+                <Text style={styles.gameBrandText}>CARREFOUR</Text>
+              </View>
+
+              <View style={styles.gameHudRight}>
+                <View style={styles.gameMetricCompact}>
+                  <Text style={styles.gameMetricLabel}>SCORE</Text>
+                  <Text style={styles.gameMetricValue}>{score}</Text>
+                </View>
+                <View style={styles.gameMetricCompact}>
+                  <Text style={styles.gameMetricLabel}>NIV.</Text>
+                  <Text style={styles.gameMetricValue}>{level}</Text>
+                </View>
+                <Pressable onPress={pauseGame} style={styles.gamePauseRound}>
+                  <Text style={styles.gamePauseRoundText}>Ⅱ</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.gameProgressCompact}>
+              <View
+                style={[
+                  styles.gameProgressCompactFill,
+                  { width: (levelProgress * 100).toFixed(1) + '%' },
+                ]}
+              />
+            </View>
+
+            <Pressable onPress={returnToMenu} style={styles.gameMenuFloating}>
+              <Text style={styles.gameMenuFloatingText}>MENU</Text>
+            </Pressable>
+          </View>
+
           {status === 'paused' ? (
             <View style={styles.overlay}>
               <View style={styles.pauseCard}>
@@ -1618,7 +1732,7 @@ export default function App() {
                 </View>
                 <Text style={styles.pauseTitle}>Partie en pause</Text>
                 <Text style={styles.pauseText}>
-                  Le trafic, le chrono et les nouveaux véhicules sont figés.
+                  Le trafic est figé.
                 </Text>
 
                 <Pressable
@@ -1649,8 +1763,7 @@ export default function App() {
                 <Text style={styles.overlayTitle}>Partie terminée</Text>
                 <Text style={styles.overlayScore}>{score} pts</Text>
                 <Text style={styles.overlayText}>
-                  Niveau {level} · {Math.floor(elapsed)} secondes · {passed}{' '}
-                  voitures sorties
+                  Niveau {level} · {passed} voitures sorties
                 </Text>
                 <Pressable
                   onPress={startGame}
@@ -1668,13 +1781,6 @@ export default function App() {
             </View>
           ) : null}
         </View>
-
-        <View style={styles.compactStatus}>
-          <View style={styles.actionDot} />
-          <Text style={styles.compactStatusText} numberOfLines={1}>
-            {lastAction}
-          </Text>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -1687,10 +1793,12 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    paddingHorizontal: 4,
-    paddingTop: 7,
-    paddingBottom: 8,
-    backgroundColor: '#eef6f7',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    paddingTop: 2,
+    paddingBottom: 0,
+    backgroundColor: '#e6eff0',
   },
   header: {
     flexDirection: 'row',
@@ -1777,16 +1885,15 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     alignSelf: 'center',
-    borderRadius: 20,
+    borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#d8e1dc',
-    borderWidth: 1,
-    borderColor: '#b8cdd1',
-    shadowColor: '#24404b',
-    shadowOpacity: 0.20,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    borderWidth: 0,
+    shadowColor: '#1f343c',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   sceneLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -1807,13 +1914,13 @@ const styles = StyleSheet.create({
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#69737c',
+    backgroundColor: '#5d6670',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#717c85',
+    backgroundColor: '#636d77',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.04)',
   },
   laneLine: {
     position: 'absolute',
@@ -1845,14 +1952,14 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   carBody: {
-    borderRadius: 7,
-    borderWidth: 1.5,
-    overflow: 'hidden',
+    borderRadius: 8,
+    borderWidth: 1.2,
+    overflow: 'visible',
     shadowColor: '#000',
-    shadowOpacity: 0.30,
-    shadowRadius: 4,
+    shadowOpacity: 0.38,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    elevation: 6,
   },
   carWindow: {
     position: 'absolute',
@@ -1873,16 +1980,16 @@ const styles = StyleSheet.create({
   },
   cornerBuilding: {
     position: 'absolute',
-    borderRadius: 6,
+    borderRadius: 5,
     padding: 4,
-    backgroundColor: '#d6e0e5',
+    backgroundColor: '#cbd8df',
     borderWidth: 1,
-    borderColor: '#f5fafc',
-    shadowColor: '#334850',
-    shadowOpacity: 0.20,
-    shadowRadius: 4,
-    shadowOffset: { width: 2, height: 3 },
-    elevation: 3,
+    borderColor: '#f3f8fa',
+    shadowColor: '#263840',
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+    shadowOffset: { width: 2, height: 4 },
+    elevation: 4,
   },
   buildingRoof: {
     height: 4,
@@ -1897,11 +2004,56 @@ const styles = StyleSheet.create({
   },
   buildingWindow: {
     flex: 1,
-    height: 5,
-    borderRadius: 2,
-    backgroundColor: '#73b0ca',
+    height: 6,
+    borderRadius: 1,
+    backgroundColor: '#5f9fba',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.52)',
+    borderColor: 'rgba(225,245,252,0.66)',
+  },
+  cornerSideBuilding: {
+    position: 'absolute',
+    borderRadius: 4,
+    padding: 3,
+    backgroundColor: '#c2cfd5',
+    borderWidth: 1,
+    borderColor: '#edf5f7',
+    shadowColor: '#283b42',
+    shadowOpacity: 0.20,
+    shadowRadius: 3,
+    shadowOffset: { width: 1, height: 2 },
+  },
+  sideWindow: {
+    height: 5,
+    borderRadius: 1,
+    marginVertical: 2,
+    backgroundColor: '#6aa6bc',
+    borderWidth: 1,
+    borderColor: 'rgba(230,248,255,0.6)',
+  },
+  cornerSidewalk: {
+    position: 'absolute',
+    width: '100%',
+    height: 5,
+    backgroundColor: '#c8cac5',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ebe7',
+  },
+  streetLamp: {
+    position: 'absolute',
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: '#44515a',
+    alignItems: 'center',
+  },
+  streetLampHead: {
+    width: 7,
+    height: 4,
+    marginTop: -2,
+    borderRadius: 3,
+    backgroundColor: '#f5d77b',
+    borderWidth: 1,
+    borderColor: '#66727a',
   },
   cornerPlanter: {
     position: 'absolute',
@@ -1916,20 +2068,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#64ad63',
+    backgroundColor: '#5aa65e',
     borderWidth: 3,
-    borderColor: '#8acb78',
-    shadowColor: '#2d5932',
-    shadowOpacity: 0.22,
-    shadowRadius: 3,
-    shadowOffset: { width: 1, height: 2 },
-    elevation: 3,
+    borderColor: '#79bf70',
+    shadowColor: '#244c2b',
+    shadowOpacity: 0.30,
+    shadowRadius: 4,
+    shadowOffset: { width: 1, height: 3 },
+    elevation: 4,
   },
   cornerTreeInner: {
     width: '42%',
     height: '42%',
     borderRadius: 999,
     backgroundColor: '#3f8248',
+  },
+  asphaltSeam: {
+    position: 'absolute',
+    backgroundColor: 'rgba(24,33,40,0.14)',
+  },
+  asphaltPatch: {
+    position: 'absolute',
+    borderRadius: 5,
+    backgroundColor: 'rgba(38,48,55,0.16)',
   },
   roadLight: {
     position: 'absolute',
@@ -1945,6 +2106,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.20)',
     transform: [{ translateX: 1 }, { translateY: 3 }],
   },
+  speedTrail: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(125,211,252,0.10)',
+  },
   carTopShine: {
     position: 'absolute',
     left: '13%',
@@ -1953,6 +2119,52 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 99,
     backgroundColor: 'rgba(255,255,255,0.42)',
+  },
+  carBodyShade: {
+    position: 'absolute',
+    left: 2,
+    right: 2,
+    bottom: 2,
+    height: '28%',
+    borderRadius: 5,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  carHood: {
+    position: 'absolute',
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
+  },
+  carTrunk: {
+    position: 'absolute',
+    borderRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  frontLight: {
+    position: 'absolute',
+    borderRadius: 99,
+    backgroundColor: '#f8fbff',
+    shadowColor: '#dff7ff',
+    shadowOpacity: 0.75,
+    shadowRadius: 2,
+  },
+  rearLight: {
+    position: 'absolute',
+    borderRadius: 99,
+    backgroundColor: '#ff3b4a',
+    shadowColor: '#ff3b4a',
+    shadowOpacity: 0.55,
+    shadowRadius: 2,
+  },
+  wheelMark: {
+    position: 'absolute',
+    width: 5,
+    height: 5,
+    borderRadius: 2,
+    backgroundColor: '#1b242a',
+    borderWidth: 1,
+    borderColor: '#070a0c',
   },
   carRoof: {
     position: 'absolute',
@@ -1993,6 +2205,129 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
     borderWidth: 1,
     borderColor: '#fff',
+  },
+  gameHud: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    pointerEvents: 'box-none',
+  },
+  gameHudTop: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  gameBrandBadge: {
+    minHeight: 36,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(7,31,49,0.90)',
+    borderWidth: 1,
+    borderColor: 'rgba(138,211,241,0.40)',
+  },
+  gameSignalMini: {
+    width: 11,
+    height: 27,
+    borderRadius: 5,
+    paddingVertical: 2,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#17242d',
+  },
+  gameSignalMiniDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 99,
+  },
+  gameBrandText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  gameHudRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  gameMetricCompact: {
+    minWidth: 49,
+    minHeight: 36,
+    paddingHorizontal: 7,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,31,49,0.90)',
+    borderWidth: 1,
+    borderColor: 'rgba(138,211,241,0.36)',
+  },
+  gameMetricLabel: {
+    color: '#9bc5d8',
+    fontSize: 6,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  gameMetricValue: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+  gamePauseRound: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,31,49,0.90)',
+    borderWidth: 1,
+    borderColor: 'rgba(138,211,241,0.40)',
+  },
+  gamePauseRoundText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  gameProgressCompact: {
+    position: 'absolute',
+    left: 9,
+    right: 9,
+    top: 49,
+    height: 3,
+    borderRadius: 99,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  gameProgressCompactFill: {
+    height: '100%',
+    borderRadius: 99,
+    backgroundColor: '#45d98c',
+  },
+  gameMenuFloating: {
+    position: 'absolute',
+    right: 9,
+    bottom: 9,
+    minWidth: 50,
+    minHeight: 28,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,31,49,0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(138,211,241,0.28)',
+  },
+  gameMenuFloatingText: {
+    color: '#e8f7ff',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
