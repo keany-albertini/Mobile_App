@@ -9,6 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
+const CAMERA_SCALE = 0.92;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -44,11 +45,11 @@ const isVertical = (direction) =>
   direction === 'north' || direction === 'south';
 
 const makeGeometry = (size) => {
-  const roadWidth = size * 0.56;
+  const roadWidth = size * 0.62;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
-  const carLength = laneWidth * 1.23;
-  const carWidth = laneWidth * 0.62;
+  const carLength = laneWidth * 1.12;
+  const carWidth = laneWidth * 0.56;
   const center = size / 2;
 
   return {
@@ -457,7 +458,7 @@ function Car({ car, size, onGesture, crashed }) {
 
   return (
     <View
-      hitSlop={7}
+      hitSlop={14}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderGrant={(event) => {
@@ -476,10 +477,10 @@ function Car({ car, size, onGesture, crashed }) {
       style={[
         styles.carTouch,
         {
-          left: center.x - Math.max(width, 30) / 2,
-          top: center.y - Math.max(height, 30) / 2,
-          width: Math.max(width, 30),
-          height: Math.max(height, 30),
+          left: center.x - Math.max(width, 40) / 2,
+          top: center.y - Math.max(height, 40) / 2,
+          width: Math.max(width, 40),
+          height: Math.max(height, 40),
         },
       ]}
     >
@@ -582,14 +583,14 @@ export default function App() {
       const geometry = makeGeometry(boardSize);
       const baseSpeed =
         boardSize *
-        (0.15 + Math.min(currentLevel - 1, 12) * 0.0035);
+        (0.19 + Math.min(currentLevel - 1, 12) * 0.0045);
 
       let nextCars = carsRef.current.map((car) => {
         const nextCar = { ...car };
         const laneDelta = nextCar.lane - nextCar.lanePosition;
 
         if (Math.abs(laneDelta) > 0.001) {
-          const laneStep = Math.min(Math.abs(laneDelta), delta * 4.5);
+          const laneStep = Math.min(Math.abs(laneDelta), delta * 7);
           nextCar.lanePosition += Math.sign(laneDelta) * laneStep;
         } else {
           nextCar.lanePosition = nextCar.lane;
@@ -640,8 +641,8 @@ export default function App() {
 
       spawnTimerRef.current += delta;
       const spawnInterval = Math.max(
-        1.25,
-        2.65 - (currentLevel - 1) * 0.12
+        1.05,
+        2.25 - (currentLevel - 1) * 0.11
       );
 
       if (spawnTimerRef.current >= spawnInterval) {
@@ -729,7 +730,7 @@ export default function App() {
 
       const distance = Math.hypot(dx, dy);
 
-      if (distance < 14) {
+      if (distance < 10) {
         handleTap(carId);
         return;
       }
@@ -745,8 +746,8 @@ export default function App() {
       const lateral = vertical ? dx : dy;
 
       if (
-        Math.abs(lateral) > Math.abs(longitudinal) &&
-        Math.abs(lateral) > 18
+        Math.abs(lateral) > Math.abs(longitudinal) * 0.7 &&
+        Math.abs(lateral) > 12
       ) {
         if (!isBeforeStopLine(currentCar, geometry)) {
           setLastAction('Changement de voie trop tardif.');
@@ -774,7 +775,7 @@ export default function App() {
         return;
       }
 
-      if (Math.abs(longitudinal) > 18) {
+      if (Math.abs(longitudinal) > 14) {
         if (currentCar.speedState === 'stopped') {
           setLastAction('Appuie sur la voiture pour la faire repartir.');
           return;
@@ -808,10 +809,10 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.1</Text>
+            <Text style={styles.title}>CARREFOUR · V0.2</Text>
           </View>
           <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.1</Text>
+            <Text style={styles.versionBadgeText}>0.2</Text>
           </View>
         </View>
 
@@ -856,19 +857,24 @@ export default function App() {
           }}
           style={styles.board}
         >
-          {boardSize > 0 ? <RoadScene size={boardSize} /> : null}
+          <View
+            pointerEvents="box-none"
+            style={[styles.sceneLayer, { transform: [{ scale: CAMERA_SCALE }] }]}
+          >
+            {boardSize > 0 ? <RoadScene size={boardSize} /> : null}
 
-          {boardSize > 0
-            ? cars.map((car) => (
-                <Car
-                  key={car.id}
-                  car={car}
-                  size={boardSize}
-                  onGesture={handleGesture}
-                  crashed={crashedIds.includes(car.id)}
-                />
-              ))
-            : null}
+            {boardSize > 0
+              ? cars.map((car) => (
+                  <Car
+                    key={car.id}
+                    car={car}
+                    size={boardSize}
+                    onGesture={handleGesture}
+                    crashed={crashedIds.includes(car.id)}
+                  />
+                ))
+              : null}
+          </View>
 
           {status === 'ready' ? (
             <View style={styles.overlay}>
@@ -886,7 +892,7 @@ export default function App() {
                     pressed && styles.primaryButtonPressed,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.1</Text>
+                  <Text style={styles.primaryButtonText}>DÉMARRER V0.2</Text>
                 </Pressable>
               </View>
             </View>
@@ -940,7 +946,7 @@ export default function App() {
           <View style={styles.controlRow}>
             <Text style={styles.controlGesture}>SWIPE CÔTÉ</Text>
             <Text style={styles.controlDescription}>
-              change d’une voie avant le carrefour
+              glisse vers la voie voulue avant le carrefour
             </Text>
           </View>
 
@@ -1072,6 +1078,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#204f3d',
     borderWidth: 1,
     borderColor: '#2d4c54',
+  },
+  sceneLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
   grass: {
     backgroundColor: '#245944',
