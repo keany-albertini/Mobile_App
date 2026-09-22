@@ -9,8 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const WORLD_SCALE = 1.6;
-const CAMERA_SCALE = 0.88;
+const WORLD_SCALE = 1.78;
+const CAMERA_SCALE = 0.82;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -47,7 +47,7 @@ const isVertical = (direction) =>
 
 const makeGeometry = (size) => {
   const viewportSize = size / WORLD_SCALE;
-  const roadWidth = viewportSize * 0.56;
+  const roadWidth = (viewportSize * 0.56) / CAMERA_SCALE;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
   const carLength = laneWidth * 1.23;
@@ -577,7 +577,7 @@ export default function App() {
         return;
       }
 
-      const delta = Math.min((now - lastTickRef.current) / 1000, 0.05);
+      const delta = Math.min((now - lastTickRef.current) / 1000, 0.033);
       lastTickRef.current = now;
 
       elapsedRef.current += delta;
@@ -585,7 +585,7 @@ export default function App() {
       const geometry = makeGeometry(boardSize * WORLD_SCALE);
       const baseSpeed =
         boardSize *
-        (0.22 + Math.min(currentLevel - 1, 12) * 0.005);
+        (0.24 + Math.min(currentLevel - 1, 12) * 0.0055);
 
       let nextCars = carsRef.current.map((car) => {
         const nextCar = { ...car };
@@ -627,8 +627,8 @@ export default function App() {
 
       spawnTimerRef.current += delta;
       const spawnInterval = Math.max(
-        0.95,
-        2.0 - (currentLevel - 1) * 0.1
+        0.78,
+        1.68 - (currentLevel - 1) * 0.085
       );
 
       if (spawnTimerRef.current >= spawnInterval) {
@@ -666,7 +666,7 @@ export default function App() {
       setLevel(currentLevel);
       setPassed(passedRef.current);
       setScore(currentScore);
-    }, 33);
+    }, 16);
 
     return () => clearInterval(timer);
   }, [boardSize, syncCars]);
@@ -728,11 +728,6 @@ export default function App() {
         Math.abs(lateral) > Math.abs(longitudinal) * 0.7 &&
         Math.abs(lateral) > 12
       ) {
-        if (!isBeforeStopLine(currentCar, geometry)) {
-          setLastAction('Changement de voie trop tardif.');
-          return;
-        }
-
         const laneDelta = lateral > 0 ? 1 : -1;
         const targetLane = clamp(
           currentCar.lane + laneDelta,
@@ -749,7 +744,7 @@ export default function App() {
           car.id === carId ? { ...car, lane: targetLane } : car
         );
 
-        setLastAction('Changement de voie.');
+        setLastAction('Changement de voie, même dans le carrefour.');
         syncCars(nextCars);
         return;
       }
@@ -788,10 +783,10 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROTOTYPE JOUABLE</Text>
-            <Text style={styles.title}>CARREFOUR · V0.4</Text>
+            <Text style={styles.title}>CARREFOUR · V0.5</Text>
           </View>
           <View style={styles.versionBadge}>
-            <Text style={styles.versionBadgeText}>0.4</Text>
+            <Text style={styles.versionBadgeText}>0.5</Text>
           </View>
         </View>
 
@@ -883,7 +878,7 @@ export default function App() {
                     pressed && styles.primaryButtonPressed,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>DÉMARRER V0.4</Text>
+                  <Text style={styles.primaryButtonText}>DÉMARRER V0.5</Text>
                 </Pressable>
               </View>
             </View>
@@ -937,7 +932,7 @@ export default function App() {
           <View style={styles.controlRow}>
             <Text style={styles.controlGesture}>SWIPE CÔTÉ</Text>
             <Text style={styles.controlDescription}>
-              glisse vers la voie voulue avant le carrefour
+              glisse vers la voie voulue, même dans le carrefour
             </Text>
           </View>
 
@@ -974,14 +969,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#123441',
+    backgroundColor: '#dceff3',
   },
   screen: {
     flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#123441',
+    backgroundColor: '#dceff3',
   },
   header: {
     flexDirection: 'row',
@@ -996,7 +991,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
   },
   title: {
-    color: '#f8fafc',
+    color: '#16343f',
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 0.6,
@@ -1006,14 +1001,14 @@ const styles = StyleSheet.create({
     minWidth: 44,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#12232d',
+    backgroundColor: '#f7fbfc',
     borderWidth: 1,
-    borderColor: '#25404e',
+    borderColor: '#b6d3db',
     alignItems: 'center',
     justifyContent: 'center',
   },
   versionBadgeText: {
-    color: '#7dd3fc',
+    color: '#0284c7',
     fontWeight: '900',
   },
   statsRow: {
@@ -1027,18 +1022,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 7,
     borderRadius: 10,
-    backgroundColor: '#1a4652',
+    backgroundColor: '#f8fcfd',
     borderWidth: 1,
-    borderColor: '#2b5d68',
+    borderColor: '#bfd8df',
   },
   statLabel: {
-    color: '#78909c',
+    color: '#607b84',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
   statValue: {
-    color: '#f8fafc',
+    color: '#16343f',
     fontSize: 17,
     fontWeight: '900',
     marginTop: 2,
@@ -1047,7 +1042,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 99,
     overflow: 'hidden',
-    backgroundColor: '#2a5360',
+    backgroundColor: '#c8dfe5',
   },
   progressFill: {
     height: '100%',
@@ -1055,7 +1050,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#38bdf8',
   },
   progressCaption: {
-    color: '#9ab2bc',
+    color: '#5e7881',
     fontSize: 10,
     marginTop: 5,
     marginBottom: 9,
@@ -1066,29 +1061,29 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#4b8b5b',
+    backgroundColor: '#7fbd74',
     borderWidth: 1,
-    borderColor: '#5b8790',
+    borderColor: '#9fc9c0',
   },
   sceneLayer: {
     position: 'absolute',
   },
   grass: {
-    backgroundColor: '#4f9861',
+    backgroundColor: '#83c879',
   },
   cornerPatch: {
     position: 'absolute',
-    backgroundColor: 'rgba(109, 171, 113, 0.24)',
+    backgroundColor: 'rgba(179, 224, 153, 0.30)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#4a535c',
+    backgroundColor: '#68757f',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#525e68',
+    backgroundColor: '#73808a',
   },
   laneLine: {
     position: 'absolute',
@@ -1101,14 +1096,14 @@ const styles = StyleSheet.create({
   },
   roadWord: {
     position: 'absolute',
-    color: 'rgba(248,250,252,0.55)',
+    color: 'rgba(255,255,255,0.82)',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
   },
   yieldWord: {
     position: 'absolute',
-    color: 'rgba(248,250,252,0.48)',
+    color: 'rgba(255,255,255,0.76)',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -1121,11 +1116,11 @@ const styles = StyleSheet.create({
   },
   carBody: {
     borderRadius: 6,
-    borderWidth: 2,
+    borderWidth: 1.5,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
+    shadowOpacity: 0.22,
+    shadowRadius: 2,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
@@ -1153,16 +1148,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: 'rgba(7,24,30,0.56)',
+    backgroundColor: 'rgba(29,62,70,0.36)',
   },
   overlayCard: {
     width: '100%',
     maxWidth: 300,
     borderRadius: 18,
     padding: 20,
-    backgroundColor: '#173946',
+    backgroundColor: '#f7fbfc',
     borderWidth: 1,
-    borderColor: '#3c6975',
+    borderColor: '#b7d5dc',
   },
   overlayKicker: {
     color: '#38bdf8',
@@ -1179,21 +1174,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   overlayTitle: {
-    color: '#f8fafc',
+    color: '#16343f',
     fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
     marginTop: 5,
   },
   overlayScore: {
-    color: '#7dd3fc',
+    color: '#0284c7',
     fontSize: 30,
     fontWeight: '900',
     textAlign: 'center',
     marginTop: 8,
   },
   overlayText: {
-    color: '#9eb0ba',
+    color: '#49636d',
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
@@ -1221,9 +1216,9 @@ const styles = StyleSheet.create({
     minHeight: 42,
     marginTop: 9,
     borderRadius: 12,
-    backgroundColor: '#19404c',
+    backgroundColor: '#f4fafb',
     borderWidth: 1,
-    borderColor: '#2c5c68',
+    borderColor: '#b9d6dd',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -1237,7 +1232,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    color: '#c7d4da',
+    color: '#38525c',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1245,12 +1240,12 @@ const styles = StyleSheet.create({
     marginTop: 9,
     borderRadius: 14,
     padding: 12,
-    backgroundColor: '#173946',
+    backgroundColor: '#f7fbfc',
     borderWidth: 1,
-    borderColor: '#2a5662',
+    borderColor: '#bdd8de',
   },
   controlsTitle: {
-    color: '#748a96',
+    color: '#5f7982',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1.3,
@@ -1264,13 +1259,13 @@ const styles = StyleSheet.create({
   },
   controlGesture: {
     width: 78,
-    color: '#7dd3fc',
+    color: '#0284c7',
     fontSize: 10,
     fontWeight: '900',
   },
   controlDescription: {
     flex: 1,
-    color: '#a8bac3',
+    color: '#49636d',
     fontSize: 11,
     lineHeight: 15,
   },
@@ -1281,7 +1276,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
     paddingTop: 9,
     borderTopWidth: 1,
-    borderTopColor: '#1b3039',
+    borderTopColor: '#d4e5e9',
   },
   stateLegendItem: {
     flexDirection: 'row',
@@ -1294,7 +1289,7 @@ const styles = StyleSheet.create({
     borderRadius: 99,
   },
   stateLegendText: {
-    color: '#728895',
+    color: '#58727c',
     fontSize: 9,
     fontWeight: '800',
   },
