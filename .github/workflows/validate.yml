@@ -1,0 +1,27 @@
+name: Validate v0.1
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate Expo bundle
+        run: npx expo export --platform web --output-dir dist
