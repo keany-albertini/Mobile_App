@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 const LANE_COUNT = 3;
 const WORLD_SCALE = 1;
 const CAMERA_SCALE = 1;
+const LEVEL_DURATION = 15;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -585,6 +587,21 @@ export default function App() {
     setScreenMode('menu');
   }, []);
 
+  const pauseGame = useCallback(() => {
+    if (statusRef.current !== 'running') return;
+    statusRef.current = 'paused';
+    setStatus('paused');
+    setLastAction('Partie en pause.');
+  }, []);
+
+  const resumeGame = useCallback(() => {
+    if (statusRef.current !== 'paused') return;
+    lastTickRef.current = Date.now();
+    statusRef.current = 'running';
+    setStatus('running');
+    setLastAction('C’est reparti !');
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now();
@@ -598,11 +615,11 @@ export default function App() {
       lastTickRef.current = now;
 
       elapsedRef.current += delta;
-      const currentLevel = 1 + Math.floor(elapsedRef.current / 45);
+      const currentLevel = 1 + Math.floor(elapsedRef.current / LEVEL_DURATION);
       const geometry = makeGeometry(boardSize);
       const baseSpeed =
         boardSize *
-        (0.24 + Math.min(currentLevel - 1, 12) * 0.0055);
+        (0.245 + Math.min(currentLevel - 1, 15) * 0.0115);
 
       let nextCars = carsRef.current.map((car) => {
         const nextCar = { ...car };
@@ -645,8 +662,8 @@ export default function App() {
 
       spawnTimerRef.current += delta;
       const spawnInterval = Math.max(
-        0.78,
-        1.68 - (currentLevel - 1) * 0.085
+        0.42,
+        1.48 - (currentLevel - 1) * 0.11
       );
 
       if (spawnTimerRef.current >= spawnInterval) {
@@ -804,7 +821,7 @@ export default function App() {
     [boardSize, handleTap, syncCars]
   );
 
-  const levelProgress = (elapsed % 45) / 45;
+  const levelProgress = (elapsed % LEVEL_DURATION) / LEVEL_DURATION;
 
   if (screenMode === 'menu') {
     return (
@@ -820,7 +837,7 @@ export default function App() {
               <Text style={styles.menuBrand}>CARREFOUR</Text>
             </View>
             <View style={styles.menuVersion}>
-              <Text style={styles.menuVersionText}>V0.9</Text>
+              <Text style={styles.menuVersionText}>V1.0</Text>
             </View>
           </View>
 
@@ -867,9 +884,156 @@ export default function App() {
                 <Text style={styles.menuSoon}>BIENTÔT</Text>
               </Pressable>
             </View>
+
+            <Pressable
+              onPress={() => setScreenMode('rules')}
+              style={({ pressed }) => [
+                styles.rulesMenuButton,
+                pressed && styles.menuButtonPressed,
+              ]}
+            >
+              <View style={styles.rulesMenuIcon}>
+                <Text style={styles.rulesMenuIconText}>?</Text>
+              </View>
+              <View style={styles.rulesMenuTextWrap}>
+                <Text style={styles.rulesMenuTitle}>RÈGLES · COMMENT JOUER</Text>
+                <Text style={styles.rulesMenuText}>
+                  Découvre les gestes et l’objectif en 30 secondes.
+                </Text>
+              </View>
+              <Text style={styles.rulesMenuArrow}>›</Text>
+            </Pressable>
           </View>
 
-          <Text style={styles.menuFooter}>Prototype jouable · V0.9</Text>
+          <Text style={styles.menuFooter}>Prototype jouable · V1.0</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screenMode === 'rules') {
+    return (
+      <SafeAreaView style={styles.rulesSafeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.rulesScreen}>
+          <View style={styles.rulesHeader}>
+            <Pressable
+              onPress={() => setScreenMode('menu')}
+              style={styles.rulesBackButton}
+            >
+              <Text style={styles.rulesBackText}>‹ MENU</Text>
+            </Pressable>
+            <View style={styles.rulesHeaderText}>
+              <Text style={styles.rulesEyebrow}>GUIDE RAPIDE</Text>
+              <Text style={styles.rulesTitle}>Comment jouer</Text>
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.rulesScroll}
+            contentContainerStyle={styles.rulesContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.rulesGoalCard}>
+              <View style={styles.rulesGoalBadge}>
+                <Text style={styles.rulesGoalBadgeText}>OBJECTIF</Text>
+              </View>
+              <Text style={styles.rulesGoalTitle}>Évite toutes les collisions.</Text>
+              <Text style={styles.rulesGoalText}>
+                Plus tu avances, plus les voitures arrivent vite et nombreuses.
+                Chaque niveau dure seulement 15 secondes.
+              </Text>
+            </View>
+
+            <View style={styles.ruleCard}>
+              <View style={styles.ruleVisual}>
+                <View style={styles.ruleRoadStripVertical} />
+                <View style={styles.ruleCarVertical} />
+                <View style={styles.ruleTapCircle}>
+                  <Text style={styles.ruleTapText}>1×</Text>
+                </View>
+              </View>
+              <View style={styles.ruleCopy}>
+                <Text style={styles.ruleStep}>01 · ARRÊTER</Text>
+                <Text style={styles.ruleTitle}>Appuie sur une voiture</Text>
+                <Text style={styles.ruleText}>
+                  Elle s’arrête immédiatement, exactement là où elle se trouve.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ruleCard}>
+              <View style={styles.ruleVisual}>
+                <View style={styles.ruleRoadStripVertical} />
+                <View style={[styles.ruleCarVertical, styles.ruleCarStopped]} />
+                <Text style={styles.ruleForwardArrow}>↑</Text>
+              </View>
+              <View style={styles.ruleCopy}>
+                <Text style={styles.ruleStep}>02 · REPARTIR</Text>
+                <Text style={styles.ruleTitle}>Appuie ou pousse vers l’avant</Text>
+                <Text style={styles.ruleText}>
+                  Un appui la relance normalement. Un swipe vers l’avant la relance en accéléré.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ruleCard}>
+              <View style={styles.ruleVisual}>
+                <View style={styles.ruleRoadStripHorizontal} />
+                <View style={styles.ruleCarHorizontal} />
+                <Text style={styles.ruleSideArrow}>↔</Text>
+              </View>
+              <View style={styles.ruleCopy}>
+                <Text style={styles.ruleStep}>03 · CHANGER DE VOIE</Text>
+                <Text style={styles.ruleTitle}>Glisse sur le côté</Text>
+                <Text style={styles.ruleText}>
+                  Change de voie avant, pendant ou après le carrefour.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ruleCard}>
+              <View style={styles.ruleVisual}>
+                <View style={styles.ruleRoadStripVertical} />
+                <View style={styles.ruleCarVertical} />
+                <Text style={styles.ruleSpeedArrow}>⇧</Text>
+              </View>
+              <View style={styles.ruleCopy}>
+                <Text style={styles.ruleStep}>04 · GÉRER LA VITESSE</Text>
+                <Text style={styles.ruleTitle}>Swipe dans le sens de circulation</Text>
+                <Text style={styles.ruleText}>
+                  Vers l’avant = rapide. Dans le sens inverse = ralenti.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ruleCard}>
+              <View style={styles.ruleVisual}>
+                <View style={styles.ruleCrossVertical} />
+                <View style={styles.ruleCrossHorizontal} />
+                <View style={styles.ruleCrashCarOne} />
+                <View style={styles.ruleCrashCarTwo} />
+                <Text style={styles.ruleCrashMark}>!</Text>
+              </View>
+              <View style={styles.ruleCopy}>
+                <Text style={styles.ruleStep}>05 · SURVIVRE</Text>
+                <Text style={styles.ruleTitle}>Ne laisse pas deux voitures se toucher</Text>
+                <Text style={styles.ruleText}>
+                  Une collision termine immédiatement la partie.
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={playGame}
+              style={({ pressed }) => [
+                styles.rulesPlayButton,
+                pressed && styles.menuButtonPressed,
+              ]}
+            >
+              <Text style={styles.rulesPlayText}>J’AI COMPRIS · JOUER</Text>
+            </Pressable>
+          </ScrollView>
         </View>
       </SafeAreaView>
     );
@@ -883,11 +1047,17 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V0.9</Text>
+            <Text style={styles.title}>CARREFOUR · V1.0</Text>
           </View>
-          <Pressable onPress={returnToMenu} style={styles.menuChip}>
-            <Text style={styles.menuChipText}>MENU</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={pauseGame} style={styles.pauseChip}>
+              <Text style={styles.pauseChipIcon}>Ⅱ</Text>
+              <Text style={styles.pauseChipText}>PAUSE</Text>
+            </Pressable>
+            <Pressable onPress={returnToMenu} style={styles.menuChip}>
+              <Text style={styles.menuChipText}>MENU</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.statsRow}>
@@ -917,6 +1087,15 @@ export default function App() {
             ]}
           />
         </View>
+        <View style={styles.levelInfoRow}>
+          <Text style={styles.levelInfoText}>
+            Niveau {level} · suivant dans {Math.max(
+              0,
+              LEVEL_DURATION - Math.floor(elapsed % LEVEL_DURATION)
+            )}s
+          </Text>
+          <Text style={styles.levelInfoBoost}>TRAFIC +</Text>
+        </View>
 
         <View style={[styles.board, { width: boardSize, height: boardSize }]}>
           <View pointerEvents="box-none" style={styles.sceneLayer}>
@@ -932,6 +1111,38 @@ export default function App() {
               />
             ))}
           </View>
+
+          {status === 'paused' ? (
+            <View style={styles.overlay}>
+              <View style={styles.pauseCard}>
+                <View style={styles.pauseIconCircle}>
+                  <Text style={styles.pauseIconText}>Ⅱ</Text>
+                </View>
+                <Text style={styles.pauseTitle}>Partie en pause</Text>
+                <Text style={styles.pauseText}>
+                  Le trafic, le chrono et les nouveaux véhicules sont figés.
+                </Text>
+
+                <Pressable
+                  onPress={resumeGame}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.primaryButtonText}>REPRENDRE</Text>
+                </Pressable>
+
+                <Pressable onPress={startGame} style={styles.pauseSecondaryButton}>
+                  <Text style={styles.pauseSecondaryText}>REJOUER</Text>
+                </Pressable>
+
+                <Pressable onPress={returnToMenu} style={styles.backMenuButton}>
+                  <Text style={styles.backMenuButtonText}>RETOUR AU MENU</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {status === 'gameover' ? (
             <View style={styles.overlay}>
@@ -1568,5 +1779,417 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: '#d3e5e9',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pauseChip: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#fff4d8',
+    borderWidth: 1,
+    borderColor: '#f1d28a',
+  },
+  pauseChipIcon: {
+    color: '#b7791f',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  pauseChipText: {
+    color: '#8a5a12',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  levelInfoRow: {
+    minHeight: 24,
+    marginTop: 5,
+    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  levelInfoText: {
+    color: '#66818a',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  levelInfoBoost: {
+    color: '#0ea5e9',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  pauseCard: {
+    width: '100%',
+    maxWidth: 300,
+    borderRadius: 22,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe2e7',
+    shadowColor: '#315866',
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 5,
+  },
+  pauseIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 999,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff2c7',
+    borderWidth: 1,
+    borderColor: '#f0d382',
+  },
+  pauseIconText: {
+    color: '#a86609',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  pauseTitle: {
+    color: '#16343f',
+    fontSize: 24,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  pauseText: {
+    color: '#607780',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  pauseSecondaryButton: {
+    minHeight: 42,
+    marginTop: 9,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef6f8',
+    borderWidth: 1,
+    borderColor: '#d5e6ea',
+  },
+  pauseSecondaryText: {
+    color: '#3b6571',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  rulesMenuButton: {
+    minHeight: 74,
+    marginTop: 10,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe3e8',
+  },
+  rulesMenuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0f2fe',
+  },
+  rulesMenuIconText: {
+    color: '#0284c7',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  rulesMenuTextWrap: {
+    flex: 1,
+    marginLeft: 11,
+  },
+  rulesMenuTitle: {
+    color: '#274955',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  rulesMenuText: {
+    color: '#78909a',
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 3,
+  },
+  rulesMenuArrow: {
+    color: '#4e8ea0',
+    fontSize: 28,
+    marginLeft: 8,
+  },
+  rulesSafeArea: {
+    flex: 1,
+    backgroundColor: '#eef9fb',
+  },
+  rulesScreen: {
+    flex: 1,
+    backgroundColor: '#eef9fb',
+  },
+  rulesHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#d8e9ed',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  rulesBackButton: {
+    minWidth: 74,
+    minHeight: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d0e3e8',
+  },
+  rulesBackText: {
+    color: '#407181',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  rulesHeaderText: {
+    marginLeft: 12,
+  },
+  rulesEyebrow: {
+    color: '#0ea5e9',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  rulesTitle: {
+    color: '#16343f',
+    fontSize: 23,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+  rulesScroll: {
+    flex: 1,
+  },
+  rulesContent: {
+    padding: 14,
+    paddingBottom: 28,
+    gap: 10,
+  },
+  rulesGoalCard: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#0ea5e9',
+    shadowColor: '#0369a1',
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  rulesGoalBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  rulesGoalBadgeText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  rulesGoalTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 10,
+  },
+  rulesGoalText: {
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 5,
+  },
+  ruleCard: {
+    minHeight: 118,
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d8e8ec',
+  },
+  ruleVisual: {
+    width: 94,
+    height: 94,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#d9efb8',
+    borderWidth: 1,
+    borderColor: '#cce4bd',
+  },
+  ruleCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  ruleStep: {
+    color: '#0ea5e9',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  ruleTitle: {
+    color: '#234550',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+  ruleText: {
+    color: '#667e87',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 4,
+  },
+  ruleRoadStripVertical: {
+    position: 'absolute',
+    width: 36,
+    height: '100%',
+    backgroundColor: '#7e8992',
+  },
+  ruleRoadStripHorizontal: {
+    position: 'absolute',
+    height: 36,
+    width: '100%',
+    backgroundColor: '#7e8992',
+  },
+  ruleCarVertical: {
+    width: 15,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: '#0ea5e9',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  ruleCarStopped: {
+    backgroundColor: '#ef4444',
+  },
+  ruleCarHorizontal: {
+    width: 30,
+    height: 15,
+    borderRadius: 5,
+    backgroundColor: '#8b5cf6',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  ruleTapCircle: {
+    position: 'absolute',
+    right: 9,
+    bottom: 9,
+    width: 29,
+    height: 29,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#0ea5e9',
+  },
+  ruleTapText: {
+    color: '#0284c7',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  ruleForwardArrow: {
+    position: 'absolute',
+    right: 12,
+    top: 7,
+    color: '#0ea5e9',
+    fontSize: 34,
+    fontWeight: '900',
+  },
+  ruleSideArrow: {
+    position: 'absolute',
+    bottom: 7,
+    color: '#0ea5e9',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  ruleSpeedArrow: {
+    position: 'absolute',
+    right: 10,
+    top: 4,
+    color: '#22c55e',
+    fontSize: 34,
+    fontWeight: '900',
+  },
+  ruleCrossVertical: {
+    position: 'absolute',
+    width: 34,
+    height: '100%',
+    backgroundColor: '#7e8992',
+  },
+  ruleCrossHorizontal: {
+    position: 'absolute',
+    height: 34,
+    width: '100%',
+    backgroundColor: '#7e8992',
+  },
+  ruleCrashCarOne: {
+    position: 'absolute',
+    width: 14,
+    height: 29,
+    borderRadius: 5,
+    backgroundColor: '#f97316',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    top: 22,
+  },
+  ruleCrashCarTwo: {
+    position: 'absolute',
+    width: 29,
+    height: 14,
+    borderRadius: 5,
+    backgroundColor: '#8b5cf6',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    left: 42,
+    top: 43,
+  },
+  ruleCrashMark: {
+    position: 'absolute',
+    color: '#ef4444',
+    fontSize: 27,
+    fontWeight: '900',
+    right: 10,
+    top: 8,
+  },
+  rulesPlayButton: {
+    minHeight: 54,
+    marginTop: 4,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0ea5e9',
+  },
+  rulesPlayText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   }
 });
