@@ -9,8 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const WORLD_SCALE = 3.2;
-const CAMERA_SCALE = 0.52;
+const WORLD_SCALE = 1;
+const CAMERA_SCALE = 1;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -46,9 +46,9 @@ const isVertical = (direction) =>
   direction === 'north' || direction === 'south';
 
 const makeGeometry = (size) => {
-  const viewportSize = size / WORLD_SCALE;
-  const roadWidth = viewportSize * 0.46;
-  const visibleHalf = viewportSize / (2 * CAMERA_SCALE);
+  const viewportSize = size;
+  const roadWidth = viewportSize * 0.38;
+  const visibleHalf = viewportSize / 2;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
   const carLength = laneWidth * 1.23;
@@ -597,7 +597,7 @@ export default function App() {
 
       elapsedRef.current += delta;
       const currentLevel = 1 + Math.floor(elapsedRef.current / 45);
-      const geometry = makeGeometry(boardSize * WORLD_SCALE);
+      const geometry = makeGeometry(boardSize);
       const baseSpeed =
         boardSize *
         (0.24 + Math.min(currentLevel - 1, 12) * 0.0055);
@@ -730,7 +730,7 @@ export default function App() {
         return;
       }
 
-      const geometry = makeGeometry(boardSize * WORLD_SCALE);
+      const geometry = makeGeometry(boardSize);
       const currentCar = carsRef.current.find((car) => car.id === carId);
 
       if (!currentCar) return;
@@ -818,7 +818,7 @@ export default function App() {
               <Text style={styles.menuBrand}>CARREFOUR</Text>
             </View>
             <View style={styles.menuVersion}>
-              <Text style={styles.menuVersionText}>V0.7</Text>
+              <Text style={styles.menuVersionText}>V0.8</Text>
             </View>
           </View>
 
@@ -867,7 +867,7 @@ export default function App() {
             </View>
           </View>
 
-          <Text style={styles.menuFooter}>Prototype jouable · V0.7</Text>
+          <Text style={styles.menuFooter}>Prototype jouable · V0.8</Text>
         </View>
       </SafeAreaView>
     );
@@ -881,7 +881,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V0.7</Text>
+            <Text style={styles.title}>CARREFOUR · V0.8</Text>
           </View>
           <Pressable onPress={returnToMenu} style={styles.menuChip}>
             <Text style={styles.menuChipText}>MENU</Text>
@@ -925,31 +925,15 @@ export default function App() {
           }}
           style={styles.board}
         >
-          <View
-            pointerEvents="box-none"
-            style={[
-              styles.sceneLayer,
-              { transform: [{ scale: CAMERA_SCALE }] },
-              boardSize > 0
-                ? {
-                    width: boardSize * WORLD_SCALE,
-                    height: boardSize * WORLD_SCALE,
-                    left: -(boardSize * (WORLD_SCALE - 1)) / 2,
-                    top: -(boardSize * (WORLD_SCALE - 1)) / 2,
-                  }
-                : null,
-            ]}
-          >
-            {boardSize > 0 ? (
-              <RoadScene size={boardSize * WORLD_SCALE} />
-            ) : null}
+          <View pointerEvents="box-none" style={styles.sceneLayer}>
+            {boardSize > 0 ? <RoadScene size={boardSize} /> : null}
 
             {boardSize > 0
               ? cars.map((car) => (
                   <Car
                     key={car.id}
                     car={car}
-                    size={boardSize * WORLD_SCALE}
+                    size={boardSize}
                     onGesture={handleGesture}
                     crashed={crashedIds.includes(car.id)}
                   />
@@ -1004,14 +988,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#edf8fa',
+    backgroundColor: '#f4fbfc',
   },
   screen: {
     flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14,
-    backgroundColor: '#edf8fa',
+    backgroundColor: '#f4fbfc',
   },
   header: {
     flexDirection: 'row',
@@ -1096,29 +1080,29 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#b3df91',
+    backgroundColor: '#d8efb7',
     borderWidth: 1,
     borderColor: '#c9e2dc',
   },
   sceneLayer: {
-    position: 'absolute',
+    ...StyleSheet.absoluteFillObject,
   },
   grass: {
-    backgroundColor: '#b9e89b',
+    backgroundColor: '#d5efb1',
   },
   cornerPatch: {
     position: 'absolute',
-    backgroundColor: 'rgba(214, 240, 188, 0.40)',
+    backgroundColor: 'rgba(234, 247, 214, 0.52)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#8f9aa3',
+    backgroundColor: '#77838d',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#99a5ae',
+    backgroundColor: '#828e98',
   },
   laneLine: {
     position: 'absolute',
