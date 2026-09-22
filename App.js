@@ -9,7 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 
 const LANE_COUNT = 3;
-const CAMERA_SCALE = 0.78;
+const WORLD_SCALE = 1.45;
 const DIRECTIONS = ['north', 'south', 'west', 'east'];
 const CAR_COLORS = [
   '#38bdf8',
@@ -45,7 +45,8 @@ const isVertical = (direction) =>
   direction === 'north' || direction === 'south';
 
 const makeGeometry = (size) => {
-  const roadWidth = size * 0.56;
+  const viewportSize = size / WORLD_SCALE;
+  const roadWidth = viewportSize * 0.56;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
   const carLength = laneWidth * 1.23;
@@ -580,7 +581,7 @@ export default function App() {
 
       elapsedRef.current += delta;
       const currentLevel = 1 + Math.floor(elapsedRef.current / 45);
-      const geometry = makeGeometry(boardSize);
+      const geometry = makeGeometry(boardSize * WORLD_SCALE);
       const baseSpeed =
         boardSize *
         (0.19 + Math.min(currentLevel - 1, 12) * 0.0045);
@@ -689,7 +690,7 @@ export default function App() {
     (carId) => {
       if (statusRef.current !== 'running' || boardSize <= 0) return;
 
-      const geometry = makeGeometry(boardSize);
+      const geometry = makeGeometry(boardSize * WORLD_SCALE);
       let action = '';
 
       const nextCars = carsRef.current.map((car) => {
@@ -859,16 +860,28 @@ export default function App() {
         >
           <View
             pointerEvents="box-none"
-            style={[styles.sceneLayer, { transform: [{ scale: CAMERA_SCALE }] }]}
+            style={[
+              styles.sceneLayer,
+              boardSize > 0
+                ? {
+                    width: boardSize * WORLD_SCALE,
+                    height: boardSize * WORLD_SCALE,
+                    left: -(boardSize * (WORLD_SCALE - 1)) / 2,
+                    top: -(boardSize * (WORLD_SCALE - 1)) / 2,
+                  }
+                : null,
+            ]}
           >
-            {boardSize > 0 ? <RoadScene size={boardSize} /> : null}
+            {boardSize > 0 ? (
+              <RoadScene size={boardSize * WORLD_SCALE} />
+            ) : null}
 
             {boardSize > 0
               ? cars.map((car) => (
                   <Car
                     key={car.id}
                     car={car}
-                    size={boardSize}
+                    size={boardSize * WORLD_SCALE}
                     onGesture={handleGesture}
                     crashed={crashedIds.includes(car.id)}
                   />
@@ -1080,7 +1093,7 @@ const styles = StyleSheet.create({
     borderColor: '#2d4c54',
   },
   sceneLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
   },
   grass: {
     backgroundColor: '#245944',
