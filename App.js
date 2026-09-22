@@ -82,7 +82,7 @@ const makeGeometry = (width, height = width) => {
   };
 };
 
-const getLaneCoordinate =const getLaneCoordinate = (direction, lanePosition, geometry) => {
+const getLaneCoordinate = (direction, lanePosition, geometry) => {
   const lane = clamp(lanePosition, 0, LANE_COUNT - 1);
   const { centerX, centerY, roadHalf, laneWidth } = geometry;
 
@@ -129,7 +129,7 @@ const getStopAxis = (direction, geometry) => {
   return geometry.intersectionMaxX + offset;
 };
 
-const isBeforeStopLine =const isBeforeStopLine = (car, geometry) => {
+const isBeforeStopLine = (car, geometry) => {
   const stopAxis = getStopAxis(car.direction, geometry);
   const sign = getAxisSign(car.direction);
 
@@ -212,7 +212,7 @@ const createCar = (existingCars, geometry, level, id) => {
   return null;
 };
 
-function RoadScenefunction RoadScene({ width, height }) {
+function RoadScene({ width, height }) {
   const geometry = useMemo(() => makeGeometry(width, height), [width, height]);
   const breeze = useRef(new Animated.Value(0)).current;
   const laneLines = [];
@@ -476,9 +476,9 @@ function RoadScenefunction RoadScene({ width, height }) {
   );
 }
 
-function Car({ car, width, height, onGesture, crashed }) {function Car({ car, size, onGesture, crashed }) {
+function Car({ car, sceneWidth, sceneHeight, onGesture, crashed }) {
   const startPoint = useRef({ x: 0, y: 0 });
-  const geometry = useMemo(() => makeGeometry(width, height), [width, height]);
+  const geometry = useMemo(() => makeGeometry(sceneWidth, sceneHeight), [sceneWidth, sceneHeight]);
   const center = getCarCenter(car, geometry);
   const horizontal = !isVertical(car.direction);
   const sign = getAxisSign(car.direction);
@@ -1559,8 +1559,8 @@ export default function App() {
               <Car
                 key={car.id}
                 car={car}
-                width={boardWidth}
-                height={boardHeight}
+                sceneWidth={boardWidth}
+                sceneHeight={boardHeight}
                 onGesture={handleGesture}
                 crashed={crashedIds.includes(car.id)}
               />
