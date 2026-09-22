@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  ImageBackground,
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -885,143 +886,131 @@ export default function App() {
   const levelProgress = (elapsed % LEVEL_DURATION) / LEVEL_DURATION;
 
   if (screenMode === 'menu') {
-    const menuSceneSize = Math.min(boardSize, 430);
+    const logoFontSize = Math.max(36, Math.min(52, windowWidth * 0.12));
 
     return (
-      <SafeAreaView style={styles.designMenuSafeArea}>
-        <StatusBar style="dark" />
-        <ScrollView
-          style={styles.designMenuScroll}
-          contentContainerStyle={styles.designMenuContent}
-          showsVerticalScrollIndicator={false}
+      <SafeAreaView style={styles.fullMenuSafeArea}>
+        <StatusBar style="light" />
+        <ImageBackground
+          source={{ uri: '/menu-v12.jpg' }}
+          resizeMode="cover"
+          style={styles.fullMenuBackground}
+          imageStyle={styles.fullMenuBackgroundImage}
         >
-          <View style={styles.designSkyGlowOne} />
-          <View style={styles.designSkyGlowTwo} />
+          <View style={styles.fullMenuShadeTop} />
+          <View style={styles.fullMenuShadeBottom} />
 
-          <View style={styles.designLogoWrap}>
-            <View style={styles.designLogoRow}>
-              <Text style={styles.designLogoText}>CARREF</Text>
-              <View style={styles.designTrafficLight}>
-                <View style={[styles.designTrafficDot, { backgroundColor: '#ef4444' }]} />
-                <View style={[styles.designTrafficDot, { backgroundColor: '#facc15' }]} />
-                <View style={[styles.designTrafficDot, { backgroundColor: '#22c55e' }]} />
+          <View style={styles.fullMenuContent}>
+            <View style={styles.fullMenuHeader}>
+              <View style={styles.fullMenuLogoRow}>
+                <Text
+                  style={[
+                    styles.fullMenuLogoText,
+                    { fontSize: logoFontSize },
+                  ]}
+                >
+                  CARREF
+                </Text>
+
+                <View style={styles.fullMenuTrafficLight}>
+                  <View
+                    style={[
+                      styles.fullMenuTrafficDot,
+                      { backgroundColor: '#ef4444' },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.fullMenuTrafficDot,
+                      { backgroundColor: '#fbbf24' },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.fullMenuTrafficDot,
+                      { backgroundColor: '#22c55e' },
+                    ]}
+                  />
+                </View>
+
+                <Text
+                  style={[
+                    styles.fullMenuLogoText,
+                    { fontSize: logoFontSize },
+                  ]}
+                >
+                  UR
+                </Text>
               </View>
-              <Text style={styles.designLogoText}>UR</Text>
+
+              <View style={styles.fullMenuSubtitlePill}>
+                <Text style={styles.fullMenuSubtitle}>
+                  Maîtrise le trafic et évite les collisions
+                </Text>
+              </View>
             </View>
-            <Text style={styles.designSubtitle}>
-              Maîtrise le trafic et évite les collisions
-            </Text>
-            <View style={styles.designVersionPill}>
-              <Text style={styles.designVersionText}>V1.1 · DESIGN A</Text>
+
+            <View style={styles.fullMenuButtonArea}>
+              <Pressable
+                onPress={playGame}
+                style={({ pressed }) => [
+                  styles.fullMenuPlayButton,
+                  pressed && styles.fullMenuPressed,
+                ]}
+              >
+                <View style={styles.fullMenuPlayHighlight} />
+                <View style={styles.fullMenuPlayIcon}>
+                  <Text style={styles.fullMenuPlayTriangle}>▶</Text>
+                </View>
+                <Text style={styles.fullMenuPlayText}>JOUER</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setScreenMode('rules')}
+                style={({ pressed }) => [
+                  styles.fullMenuSecondaryButton,
+                  pressed && styles.fullMenuPressed,
+                ]}
+              >
+                <View style={styles.fullMenuSecondaryIcon}>
+                  <Text style={styles.fullMenuSecondaryIconText}>▤</Text>
+                </View>
+                <Text style={styles.fullMenuSecondaryText}>COMMENT JOUER</Text>
+                <Text style={styles.fullMenuChevron}>›</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setScreenMode('stats')}
+                style={({ pressed }) => [
+                  styles.fullMenuSecondaryButton,
+                  pressed && styles.fullMenuPressed,
+                ]}
+              >
+                <View style={styles.fullMenuSecondaryIcon}>
+                  <Text style={styles.fullMenuSecondaryIconText}>▥</Text>
+                </View>
+                <Text style={styles.fullMenuSecondaryText}>STATISTIQUES</Text>
+                <Text style={styles.fullMenuChevron}>›</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.fullMenuSecondaryButton,
+                  pressed && styles.fullMenuPressed,
+                ]}
+              >
+                <View style={styles.fullMenuSecondaryIcon}>
+                  <Text style={styles.fullMenuSecondaryIconText}>⚙</Text>
+                </View>
+                <View style={styles.fullMenuSecondaryMain}>
+                  <Text style={styles.fullMenuSecondaryMainText}>PARAMÈTRES</Text>
+                  <Text style={styles.fullMenuSoon}>BIENTÔT</Text>
+                </View>
+                <Text style={styles.fullMenuChevron}>›</Text>
+              </Pressable>
             </View>
           </View>
-
-          <View
-            style={[
-              styles.designCityCard,
-              { width: menuSceneSize, height: menuSceneSize * 0.86 },
-            ]}
-          >
-            <View style={styles.designCitySky} />
-            <View style={styles.designBuildingLeft}>
-              <View style={styles.designBuildingWindow} />
-              <View style={styles.designBuildingWindow} />
-              <Text style={styles.designBuildingSlogan}>CIRCULONS · MIEUX</Text>
-            </View>
-            <View style={styles.designBuildingRight}>
-              <View style={styles.designBuildingWindow} />
-              <View style={styles.designBuildingWindow} />
-              <Text style={styles.designBuildingSlogan}>DES VILLES · PLUS FLUIDES</Text>
-            </View>
-
-            <View style={styles.designRoadVertical} />
-            <View style={styles.designRoadHorizontal} />
-            <View style={styles.designIntersectionCore} />
-
-            <View style={[styles.designLaneMarkVertical, { left: '48.8%', top: 8 }]} />
-            <View style={[styles.designLaneMarkVertical, { left: '48.8%', bottom: 8 }]} />
-            <View style={[styles.designLaneMarkHorizontal, { left: 8, top: '49%' }]} />
-            <View style={[styles.designLaneMarkHorizontal, { right: 8, top: '49%' }]} />
-
-            <View style={[styles.designMiniCarVertical, { top: '13%', left: '46%', backgroundColor: '#ef4444' }]} />
-            <View style={[styles.designMiniCarVertical, { bottom: '11%', left: '52%', backgroundColor: '#0ea5e9' }]} />
-            <View style={[styles.designMiniCarHorizontal, { left: '16%', top: '45%', backgroundColor: '#facc15' }]} />
-            <View style={[styles.designMiniCarHorizontal, { right: '15%', top: '52%', backgroundColor: '#e5e7eb' }]} />
-
-            <View style={[styles.designTree, { left: 18, top: 44 }]} />
-            <View style={[styles.designTreeSmall, { left: 60, top: 25 }]} />
-            <View style={[styles.designTree, { right: 22, top: 47 }]} />
-            <View style={[styles.designTreeSmall, { right: 66, top: 22 }]} />
-            <View style={[styles.designTree, { left: 22, bottom: 35 }]} />
-            <View style={[styles.designTreeSmall, { left: 74, bottom: 16 }]} />
-            <View style={[styles.designTree, { right: 22, bottom: 33 }]} />
-            <View style={[styles.designTreeSmall, { right: 72, bottom: 17 }]} />
-          </View>
-
-          <Pressable
-            onPress={playGame}
-            style={({ pressed }) => [
-              styles.designPlayButton,
-              pressed && styles.designPressed,
-            ]}
-          >
-            <View style={styles.designPlayIcon}>
-              <Text style={styles.designPlayTriangle}>▶</Text>
-            </View>
-            <Text style={styles.designPlayText}>JOUER</Text>
-          </Pressable>
-
-          <View style={styles.designMenuList}>
-            <Pressable
-              onPress={() => setScreenMode('rules')}
-              style={({ pressed }) => [
-                styles.designMenuRow,
-                pressed && styles.designPressed,
-              ]}
-            >
-              <View style={styles.designRowIcon}>
-                <Text style={styles.designRowIconText}>▤</Text>
-              </View>
-              <Text style={styles.designRowText}>COMMENT JOUER</Text>
-              <Text style={styles.designRowArrow}>›</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setScreenMode('stats')}
-              style={({ pressed }) => [
-                styles.designMenuRow,
-                pressed && styles.designPressed,
-              ]}
-            >
-              <View style={styles.designRowIcon}>
-                <Text style={styles.designRowIconText}>▥</Text>
-              </View>
-              <Text style={styles.designRowText}>STATISTIQUES</Text>
-              <Text style={styles.designRowArrow}>›</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.designMenuRow,
-                styles.designMenuRowMuted,
-                pressed && styles.designPressed,
-              ]}
-            >
-              <View style={styles.designRowIcon}>
-                <Text style={styles.designRowIconText}>⚙</Text>
-              </View>
-              <View style={styles.designRowMain}>
-                <Text style={styles.designRowText}>PARAMÈTRES</Text>
-                <Text style={styles.designSoonText}>BIENTÔT</Text>
-              </View>
-              <Text style={styles.designRowArrow}>›</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.designFooter}>
-            DES ROUTES PLUS SÛRES · UN MEILLEUR DEMAIN
-          </Text>
-        </ScrollView>
+        </ImageBackground>
       </SafeAreaView>
     );
   }
@@ -1217,7 +1206,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V1.1</Text>
+            <Text style={styles.title}>CARREFOUR · V1.2</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable onPress={pauseGame} style={styles.pauseChip}>
@@ -2822,5 +2811,217 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     paddingHorizontal: 18,
+  },
+  fullMenuSafeArea: {
+    flex: 1,
+    backgroundColor: '#0b5f9d',
+  },
+  fullMenuBackground: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    justifyContent: 'center',
+  },
+  fullMenuBackgroundImage: {
+    opacity: 1,
+  },
+  fullMenuShadeTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '30%',
+    backgroundColor: 'rgba(4, 54, 104, 0.08)',
+  },
+  fullMenuShadeBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '43%',
+    backgroundColor: 'rgba(5, 42, 67, 0.10)',
+  },
+  fullMenuContent: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 22,
+    justifyContent: 'space-between',
+  },
+  fullMenuHeader: {
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  fullMenuLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '100%',
+  },
+  fullMenuLogoText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    letterSpacing: -2,
+    textShadowColor: '#0759a8',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 2,
+  },
+  fullMenuTrafficLight: {
+    width: 34,
+    height: 62,
+    borderRadius: 12,
+    marginHorizontal: 2,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#172033',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    shadowColor: '#0759a8',
+    shadowOpacity: 0.38,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  fullMenuTrafficDot: {
+    width: 13,
+    height: 13,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.68)',
+  },
+  fullMenuSubtitlePill: {
+    marginTop: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(8, 58, 128, 0.92)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.86)',
+  },
+  fullMenuSubtitle: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  fullMenuButtonArea: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    gap: 10,
+  },
+  fullMenuPlayButton: {
+    minHeight: 76,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    overflow: 'hidden',
+    backgroundColor: '#17c942',
+    borderWidth: 3,
+    borderColor: '#b7ffbe',
+    shadowColor: '#0d7a25',
+    shadowOpacity: 0.36,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  fullMenuPlayHighlight: {
+    position: 'absolute',
+    top: 4,
+    left: 14,
+    right: 14,
+    height: 15,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+  },
+  fullMenuPlayIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  fullMenuPlayTriangle: {
+    color: '#18c943',
+    fontSize: 20,
+    marginLeft: 3,
+  },
+  fullMenuPlayText: {
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.22)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 2,
+  },
+  fullMenuSecondaryButton: {
+    minHeight: 58,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 2,
+    borderColor: '#dceeff',
+    shadowColor: '#174d7a',
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
+  fullMenuSecondaryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eaf4ff',
+  },
+  fullMenuSecondaryIconText: {
+    color: '#0f4f9c',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  fullMenuSecondaryText: {
+    flex: 1,
+    marginLeft: 14,
+    color: '#123e78',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  fullMenuSecondaryMain: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  fullMenuSecondaryMainText: {
+    color: '#123e78',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  fullMenuSoon: {
+    color: '#8da3b7',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 1,
+  },
+  fullMenuChevron: {
+    color: '#1687d8',
+    fontSize: 31,
+    fontWeight: '600',
+    marginLeft: 10,
+    marginTop: -2,
+  },
+  fullMenuPressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.985 }],
   }
 });
