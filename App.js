@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -263,7 +264,7 @@ function RoadScene({ size }) {
   }
 
   return (
-    <>
+    <View style={[styles.roadScene, { width: size, height: size }]}>
       <View style={[styles.grass, StyleSheet.absoluteFill]} />
 
       <View
@@ -441,7 +442,7 @@ function RoadScene({ size }) {
           },
         ]}
       />
-    </>
+    </View>
   );
 }
 
@@ -527,8 +528,9 @@ function Car({ car, size, onGesture, crashed }) {
 }
 
 export default function App() {
+  const { width: windowWidth } = useWindowDimensions();
+  const boardSize = Math.max(280, Math.min(windowWidth - 24, 720));
   const [screenMode, setScreenMode] = useState('menu');
-  const [boardSize, setBoardSize] = useState(0);
   const [cars, setCars] = useState([]);
   const [status, setStatus] = useState('ready');
   const [elapsed, setElapsed] = useState(0);
@@ -557,7 +559,7 @@ export default function App() {
     carsRef.current = [];
     elapsedRef.current = 0;
     passedRef.current = 0;
-    spawnTimerRef.current = 0;
+    spawnTimerRef.current = 1.7;
     lastTickRef.current = Date.now();
     nextIdRef.current = 1;
     statusRef.current = 'running';
@@ -568,7 +570,7 @@ export default function App() {
     setScore(0);
     setPassed(0);
     setCrashedIds([]);
-    setLastAction('Trafic lancé. Anticipe les files !');
+    setLastAction('Trafic lancé. Les véhicules arrivent !');
     setStatus('running');
   }, []);
 
@@ -587,7 +589,7 @@ export default function App() {
     const timer = setInterval(() => {
       const now = Date.now();
 
-      if (statusRef.current !== 'running' || boardSize <= 0) {
+      if (statusRef.current !== 'running') {
         lastTickRef.current = now;
         return;
       }
@@ -721,7 +723,7 @@ export default function App() {
 
   const handleGesture = useCallback(
     (carId, dx, dy) => {
-      if (statusRef.current !== 'running' || boardSize <= 0) return;
+      if (statusRef.current !== 'running') return;
 
       const distance = Math.hypot(dx, dy);
 
@@ -818,7 +820,7 @@ export default function App() {
               <Text style={styles.menuBrand}>CARREFOUR</Text>
             </View>
             <View style={styles.menuVersion}>
-              <Text style={styles.menuVersionText}>V0.8</Text>
+              <Text style={styles.menuVersionText}>V0.9</Text>
             </View>
           </View>
 
@@ -867,7 +869,7 @@ export default function App() {
             </View>
           </View>
 
-          <Text style={styles.menuFooter}>Prototype jouable · V0.8</Text>
+          <Text style={styles.menuFooter}>Prototype jouable · V0.9</Text>
         </View>
       </SafeAreaView>
     );
@@ -881,7 +883,7 @@ export default function App() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>NIVEAU EN COURS</Text>
-            <Text style={styles.title}>CARREFOUR · V0.8</Text>
+            <Text style={styles.title}>CARREFOUR · V0.9</Text>
           </View>
           <Pressable onPress={returnToMenu} style={styles.menuChip}>
             <Text style={styles.menuChipText}>MENU</Text>
@@ -916,29 +918,19 @@ export default function App() {
           />
         </View>
 
-        <View
-          onLayout={(event) => {
-            const width = event.nativeEvent.layout.width;
-            if (width > 0 && Math.abs(width - boardSize) > 1) {
-              setBoardSize(width);
-            }
-          }}
-          style={styles.board}
-        >
+        <View style={[styles.board, { width: boardSize, height: boardSize }]}>
           <View pointerEvents="box-none" style={styles.sceneLayer}>
-            {boardSize > 0 ? <RoadScene size={boardSize} /> : null}
+            <RoadScene size={boardSize} />
 
-            {boardSize > 0
-              ? cars.map((car) => (
-                  <Car
-                    key={car.id}
-                    car={car}
-                    size={boardSize}
-                    onGesture={handleGesture}
-                    crashed={crashedIds.includes(car.id)}
-                  />
-                ))
-              : null}
+            {cars.map((car) => (
+              <Car
+                key={car.id}
+                car={car}
+                size={boardSize}
+                onGesture={handleGesture}
+                crashed={crashedIds.includes(car.id)}
+              />
+            ))}
           </View>
 
           {status === 'gameover' ? (
@@ -1086,6 +1078,11 @@ const styles = StyleSheet.create({
   },
   sceneLayer: {
     ...StyleSheet.absoluteFillObject,
+  },
+  roadScene: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   grass: {
     backgroundColor: '#d5efb1',
