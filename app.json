@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Carrefour Prototype",
+    "slug": "carrefour-prototype",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#08131a",
+    "assetBundlePatterns": ["**/*"]
+  }
+}
