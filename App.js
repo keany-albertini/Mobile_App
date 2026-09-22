@@ -52,48 +52,53 @@ const getAxisSign = (direction) =>
 const isVertical = (direction) =>
   direction === 'north' || direction === 'south';
 
-const makeGeometry = (size) => {
-  const viewportSize = size;
-  const roadWidth = viewportSize * 0.38;
-  const visibleHalf = viewportSize / 2;
+const makeGeometry = (width, height = width) => {
+  const roadWidth = width * 0.46;
   const roadHalf = roadWidth / 2;
   const laneWidth = roadWidth / (LANE_COUNT * 2);
-  const carLength = laneWidth * 1.23;
-  const carWidth = laneWidth * 0.62;
-  const center = size / 2;
+  const carLength = laneWidth * 1.42;
+  const carWidth = laneWidth * 0.68;
+  const centerX = width / 2;
+  const centerY = height * 0.51;
 
   return {
-    size,
+    width,
+    height,
     roadWidth,
     roadHalf,
     laneWidth,
     carLength,
     carWidth,
-    center,
-    visibleMin: center - visibleHalf,
-    visibleMax: center + visibleHalf,
-    intersectionMin: center - roadHalf,
-    intersectionMax: center + roadHalf,
+    centerX,
+    centerY,
+    visibleMinX: 0,
+    visibleMaxX: width,
+    visibleMinY: 0,
+    visibleMaxY: height,
+    intersectionMinX: centerX - roadHalf,
+    intersectionMaxX: centerX + roadHalf,
+    intersectionMinY: centerY - roadHalf,
+    intersectionMaxY: centerY + roadHalf,
   };
 };
 
-const getLaneCoordinate = (direction, lanePosition, geometry) => {
+const getLaneCoordinate =const getLaneCoordinate = (direction, lanePosition, geometry) => {
   const lane = clamp(lanePosition, 0, LANE_COUNT - 1);
-  const { center, roadHalf, laneWidth } = geometry;
+  const { centerX, centerY, roadHalf, laneWidth } = geometry;
 
   if (direction === 'north') {
-    return center - roadHalf + laneWidth * (lane + 0.5);
+    return centerX - roadHalf + laneWidth * (lane + 0.5);
   }
 
   if (direction === 'south') {
-    return center + laneWidth * (lane + 0.5);
+    return centerX + laneWidth * (lane + 0.5);
   }
 
   if (direction === 'west') {
-    return center + laneWidth * (lane + 0.5);
+    return centerY + laneWidth * (lane + 0.5);
   }
 
-  return center - roadHalf + laneWidth * (lane + 0.5);
+  return centerY - roadHalf + laneWidth * (lane + 0.5);
 };
 
 const getCarCenter = (car, geometry) => {
@@ -109,14 +114,22 @@ const getCarCenter = (car, geometry) => {
 const getStopAxis = (direction, geometry) => {
   const offset = geometry.carLength * 0.62;
 
-  if (direction === 'north' || direction === 'west') {
-    return geometry.center - geometry.roadHalf - offset;
+  if (direction === 'north') {
+    return geometry.intersectionMinY - offset;
   }
 
-  return geometry.center + geometry.roadHalf + offset;
+  if (direction === 'south') {
+    return geometry.intersectionMaxY + offset;
+  }
+
+  if (direction === 'west') {
+    return geometry.intersectionMinX - offset;
+  }
+
+  return geometry.intersectionMaxX + offset;
 };
 
-const isBeforeStopLine = (car, geometry) => {
+const isBeforeStopLine =const isBeforeStopLine = (car, geometry) => {
   const stopAxis = getStopAxis(car.direction, geometry);
   const sign = getAxisSign(car.direction);
 
@@ -167,10 +180,13 @@ const createCar = (existingCars, geometry, level, id) => {
     const direction = randomItem(DIRECTIONS);
     const lane = Math.floor(Math.random() * LANE_COUNT);
     const sign = getAxisSign(direction);
+    const vertical = isVertical(direction);
+    const visibleMin = vertical ? geometry.visibleMinY : geometry.visibleMinX;
+    const visibleMax = vertical ? geometry.visibleMaxY : geometry.visibleMaxX;
     const axis =
       sign > 0
-        ? geometry.visibleMin - geometry.carLength * 0.8
-        : geometry.visibleMax + geometry.carLength * 0.8;
+        ? visibleMin - geometry.carLength * 0.9
+        : visibleMax + geometry.carLength * 0.9;
 
     const blocked = existingCars.some((car) => {
       if (car.direction !== direction) return false;
@@ -196,8 +212,8 @@ const createCar = (existingCars, geometry, level, id) => {
   return null;
 };
 
-function RoadScene({ size }) {
-  const geometry = useMemo(() => makeGeometry(size), [size]);
+function RoadScenefunction RoadScene({ width, height }) {
+  const geometry = useMemo(() => makeGeometry(width, height), [width, height]);
   const breeze = useRef(new Animated.Value(0)).current;
   const laneLines = [];
   const crosswalks = [];
@@ -205,405 +221,264 @@ function RoadScene({ size }) {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(breeze, {
-          toValue: 1,
-          duration: 2600,
-          useNativeDriver: false,
-        }),
-        Animated.timing(breeze, {
-          toValue: 0,
-          duration: 2600,
-          useNativeDriver: false,
-        }),
+        Animated.timing(breeze, { toValue: 1, duration: 2200, useNativeDriver: false }),
+        Animated.timing(breeze, { toValue: 0, duration: 2200, useNativeDriver: false }),
       ])
     );
-
     loop.start();
     return () => loop.stop();
   }, [breeze]);
 
   const treeTilt = breeze.interpolate({
     inputRange: [0, 1],
-    outputRange: ['-1deg', '1deg'],
+    outputRange: ['-1.6deg', '1.6deg'],
   });
 
-  const segmentGap = 8;
-
+  const segmentGap = 9;
   for (let i = 1; i < LANE_COUNT * 2; i += 1) {
     const verticalX =
-      geometry.center - geometry.roadHalf + geometry.laneWidth * i;
+      geometry.centerX - geometry.roadHalf + geometry.laneWidth * i;
     const horizontalY =
-      geometry.center - geometry.roadHalf + geometry.laneWidth * i;
+      geometry.centerY - geometry.roadHalf + geometry.laneWidth * i;
     const isCenterLine = i === LANE_COUNT;
-    const color = isCenterLine
-      ? 'rgba(255,255,255,0.52)'
-      : 'rgba(255,255,255,0.30)';
+    const lineColor = isCenterLine
+      ? 'rgba(255,255,255,0.58)'
+      : 'rgba(255,255,255,0.29)';
     const thickness = isCenterLine ? 2 : 1;
 
     laneLines.push(
       <React.Fragment key={'vertical-' + i}>
-        <View
-          style={[
-            styles.laneLine,
-            {
-              left: verticalX - thickness / 2,
-              top: 0,
-              width: thickness,
-              height: geometry.intersectionMin - segmentGap,
-              backgroundColor: color,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.laneLine,
-            {
-              left: verticalX - thickness / 2,
-              top: geometry.intersectionMax + segmentGap,
-              width: thickness,
-              height: size - geometry.intersectionMax - segmentGap,
-              backgroundColor: color,
-            },
-          ]}
-        />
+        <View style={[styles.laneLine, {
+          left: verticalX - thickness / 2,
+          top: 0,
+          width: thickness,
+          height: geometry.intersectionMinY - segmentGap,
+          backgroundColor: lineColor,
+        }]} />
+        <View style={[styles.laneLine, {
+          left: verticalX - thickness / 2,
+          top: geometry.intersectionMaxY + segmentGap,
+          width: thickness,
+          height: height - geometry.intersectionMaxY - segmentGap,
+          backgroundColor: lineColor,
+        }]} />
       </React.Fragment>
     );
 
     laneLines.push(
       <React.Fragment key={'horizontal-' + i}>
-        <View
-          style={[
-            styles.laneLine,
-            {
-              left: 0,
-              top: horizontalY - thickness / 2,
-              width: geometry.intersectionMin - segmentGap,
-              height: thickness,
-              backgroundColor: color,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.laneLine,
-            {
-              left: geometry.intersectionMax + segmentGap,
-              top: horizontalY - thickness / 2,
-              width: size - geometry.intersectionMax - segmentGap,
-              height: thickness,
-              backgroundColor: color,
-            },
-          ]}
-        />
+        <View style={[styles.laneLine, {
+          left: 0,
+          top: horizontalY - thickness / 2,
+          width: geometry.intersectionMinX - segmentGap,
+          height: thickness,
+          backgroundColor: lineColor,
+        }]} />
+        <View style={[styles.laneLine, {
+          left: geometry.intersectionMaxX + segmentGap,
+          top: horizontalY - thickness / 2,
+          width: width - geometry.intersectionMaxX - segmentGap,
+          height: thickness,
+          backgroundColor: lineColor,
+        }]} />
       </React.Fragment>
     );
   }
 
-  const stripeCount = 6;
+  const stripeCount = 7;
   const stripeGap = 3;
   const stripeWidth =
     (geometry.roadWidth - stripeGap * (stripeCount + 1)) / stripeCount;
 
   for (let i = 0; i < stripeCount; i += 1) {
-    const offset =
-      geometry.center -
-      geometry.roadHalf +
-      stripeGap +
-      i * (stripeWidth + stripeGap);
+    const xOffset =
+      geometry.centerX - geometry.roadHalf +
+      stripeGap + i * (stripeWidth + stripeGap);
+    const yOffset =
+      geometry.centerY - geometry.roadHalf +
+      stripeGap + i * (stripeWidth + stripeGap);
 
     crosswalks.push(
-      <React.Fragment key={'crosswalk-' + i}>
-        <View
-          style={[
-            styles.crosswalkStripe,
-            {
-              left: offset,
-              top: geometry.intersectionMin - 13,
-              width: stripeWidth,
-              height: 8,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.crosswalkStripe,
-            {
-              left: offset,
-              top: geometry.intersectionMax + 5,
-              width: stripeWidth,
-              height: 8,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.crosswalkStripe,
-            {
-              left: geometry.intersectionMin - 13,
-              top: offset,
-              width: 8,
-              height: stripeWidth,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.crosswalkStripe,
-            {
-              left: geometry.intersectionMax + 5,
-              top: offset,
-              width: 8,
-              height: stripeWidth,
-            },
-          ]}
-        />
+      <React.Fragment key={'cross-' + i}>
+        <View style={[styles.crosswalkStripe, {
+          left: xOffset,
+          top: geometry.intersectionMinY - 14,
+          width: stripeWidth,
+          height: 8,
+        }]} />
+        <View style={[styles.crosswalkStripe, {
+          left: xOffset,
+          top: geometry.intersectionMaxY + 6,
+          width: stripeWidth,
+          height: 8,
+        }]} />
+        <View style={[styles.crosswalkStripe, {
+          left: geometry.intersectionMinX - 14,
+          top: yOffset,
+          width: 8,
+          height: stripeWidth,
+        }]} />
+        <View style={[styles.crosswalkStripe, {
+          left: geometry.intersectionMaxX + 6,
+          top: yOffset,
+          width: 8,
+          height: stripeWidth,
+        }]} />
       </React.Fragment>
     );
   }
 
-  const cornerSize = geometry.intersectionMin;
-  const treeSize = Math.max(15, size * 0.045);
-
-  const renderCorner = (key, position, rightSide = false, bottomSide = false) => (
-    <View
-      key={key}
-      style={[
-        styles.cityCorner,
-        {
-          width: cornerSize,
-          height: cornerSize,
-          ...position,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.cornerBuilding,
-          {
-            width: cornerSize * 0.60,
-            height: cornerSize * 0.54,
-            left: rightSide ? undefined : 7,
-            right: rightSide ? 7 : undefined,
-            top: bottomSide ? undefined : 7,
-            bottom: bottomSide ? 7 : undefined,
-          },
-        ]}
-      >
-        <View style={styles.buildingRoof} />
-        <View style={styles.buildingWindows}>
-          <View style={styles.buildingWindow} />
-          <View style={styles.buildingWindow} />
-          <View style={styles.buildingWindow} />
-        </View>
-        <View style={styles.buildingWindows}>
-          <View style={styles.buildingWindow} />
-          <View style={styles.buildingWindow} />
-          <View style={styles.buildingWindow} />
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.cornerSideBuilding,
-          {
-            width: cornerSize * 0.31,
-            height: cornerSize * 0.31,
-            left: rightSide ? cornerSize * 0.08 : undefined,
-            right: rightSide ? undefined : cornerSize * 0.08,
-            top: bottomSide ? cornerSize * 0.08 : undefined,
-            bottom: bottomSide ? undefined : cornerSize * 0.08,
-          },
-        ]}
-      >
-        <View style={styles.sideWindow} />
-        <View style={styles.sideWindow} />
-      </View>
-
-      <View
-        style={[
-          styles.cornerSidewalk,
-          {
-            left: rightSide ? 0 : undefined,
-            right: rightSide ? undefined : 0,
-            top: bottomSide ? 0 : undefined,
-            bottom: bottomSide ? undefined : 0,
-          },
-        ]}
-      />
-
-      <View
-        style={[
-          styles.cornerPlanter,
-          {
-            left: rightSide ? undefined : cornerSize * 0.12,
-            right: rightSide ? cornerSize * 0.12 : undefined,
-            top: bottomSide ? undefined : cornerSize * 0.70,
-            bottom: bottomSide ? cornerSize * 0.70 : undefined,
-          },
-        ]}
-      />
-
-      <View
-        style={[
-          styles.streetLamp,
-          {
-            left: rightSide ? cornerSize * 0.74 : cornerSize * 0.18,
-            top: bottomSide ? cornerSize * 0.18 : cornerSize * 0.74,
-          },
-        ]}
-      >
-        <View style={styles.streetLampHead} />
-      </View>
-
+  const renderTree = (key, left, top, scale = 1) => {
+    const treeSize = Math.max(18, width * 0.055) * scale;
+    return (
       <Animated.View
+        key={key}
         style={[
-          styles.cornerTree,
+          styles.realTree,
           {
+            left,
+            top,
             width: treeSize,
             height: treeSize,
             borderRadius: treeSize,
-            left: rightSide ? cornerSize * 0.12 : cornerSize * 0.72,
-            top: bottomSide ? cornerSize * 0.12 : cornerSize * 0.72,
             transform: [{ rotate: treeTilt }],
           },
         ]}
       >
-        <View style={styles.cornerTreeInner} />
+        <View style={styles.realTreeMid} />
+        <View style={styles.realTreeCore} />
       </Animated.View>
+    );
+  };
+
+  const renderBuilding = (key, left, top, w, h, accent) => (
+    <View key={key} style={[styles.realBuildingShadow, { left: left + 4, top: top + 6, width: w, height: h }]}>
+      <View style={[styles.realBuilding, { width: w, height: h }]}>
+        <View style={[styles.realBuildingRoof, { backgroundColor: accent }]} />
+        <View style={styles.realBuildingWindows}>
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+        </View>
+        <View style={styles.realBuildingWindows}>
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+        </View>
+        <View style={styles.realBuildingWindows}>
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+          <View style={styles.realWindow} />
+        </View>
+      </View>
     </View>
   );
 
+  const leftSpace = geometry.intersectionMinX;
+  const rightStart = geometry.intersectionMaxX;
+  const topSpace = geometry.intersectionMinY;
+  const bottomStart = geometry.intersectionMaxY;
+
   return (
-    <View style={[styles.roadScene, { width: size, height: size }]}>
+    <View style={[styles.roadScene, { width, height }]}>
       <View style={[styles.cityGround, StyleSheet.absoluteFill]} />
 
-      {renderCorner('top-left', { left: 0, top: 0 })}
-      {renderCorner('top-right', { right: 0, top: 0 }, true)}
-      {renderCorner('bottom-left', { left: 0, bottom: 0 }, false, true)}
-      {renderCorner('bottom-right', { right: 0, bottom: 0 }, true, true)}
+      <View style={[styles.sidewalkVertical, { left: geometry.intersectionMinX - 10, top: 0, height }]} />
+      <View style={[styles.sidewalkVertical, { left: geometry.intersectionMaxX + 2, top: 0, height }]} />
+      <View style={[styles.sidewalkHorizontal, { top: geometry.intersectionMinY - 10, left: 0, width }]} />
+      <View style={[styles.sidewalkHorizontal, { top: geometry.intersectionMaxY + 2, left: 0, width }]} />
 
-      <View
-        style={[
-          styles.road,
-          {
-            left: geometry.center - geometry.roadHalf,
-            top: 0,
-            width: geometry.roadWidth,
-            height: size,
-          },
-        ]}
-      />
+      <View style={[styles.road, {
+        left: geometry.centerX - geometry.roadHalf,
+        top: 0,
+        width: geometry.roadWidth,
+        height,
+      }]} />
+      <View style={[styles.road, {
+        left: 0,
+        top: geometry.centerY - geometry.roadHalf,
+        width,
+        height: geometry.roadWidth,
+      }]} />
 
-      <View
-        style={[
-          styles.road,
-          {
-            left: 0,
-            top: geometry.center - geometry.roadHalf,
-            width: size,
-            height: geometry.roadWidth,
-          },
-        ]}
-      />
+      <View style={[styles.roadLight, {
+        left: geometry.centerX - geometry.roadWidth * 0.10,
+        top: 0,
+        width: geometry.roadWidth * 0.20,
+        height,
+      }]} />
+      <View style={[styles.roadLight, {
+        left: 0,
+        top: geometry.centerY - geometry.roadWidth * 0.10,
+        width,
+        height: geometry.roadWidth * 0.20,
+      }]} />
 
-      <View
-        style={[
-          styles.roadLight,
-          {
-            left: geometry.center - geometry.roadWidth * 0.11,
-            top: 0,
-            width: geometry.roadWidth * 0.22,
-            height: size,
-          },
-        ]}
-      />
-
-      <View
-        style={[
-          styles.roadLight,
-          {
-            left: 0,
-            top: geometry.center - geometry.roadWidth * 0.11,
-            width: size,
-            height: geometry.roadWidth * 0.22,
-          },
-        ]}
-      />
+      <View style={[styles.intersection, {
+        left: geometry.intersectionMinX,
+        top: geometry.intersectionMinY,
+        width: geometry.roadWidth,
+        height: geometry.roadWidth,
+      }]} />
 
       {laneLines}
-
-      <View style={[styles.asphaltSeam, { left: geometry.center - geometry.roadHalf + geometry.roadWidth * 0.26, top: 0, width: 1, height: size }]} />
-      <View style={[styles.asphaltSeam, { left: geometry.center + geometry.roadWidth * 0.21, top: 0, width: 1, height: size }]} />
-      <View style={[styles.asphaltSeam, { top: geometry.center - geometry.roadHalf + geometry.roadWidth * 0.28, left: 0, height: 1, width: size }]} />
-      <View style={[styles.asphaltSeam, { top: geometry.center + geometry.roadWidth * 0.18, left: 0, height: 1, width: size }]} />
-      <View style={[styles.asphaltPatch, { left: geometry.center - geometry.roadHalf + 8, top: size * 0.12, width: geometry.roadWidth * 0.34, height: 7 }]} />
-      <View style={[styles.asphaltPatch, { left: size * 0.12, top: geometry.center + geometry.roadHalf - 14, width: 8, height: geometry.roadWidth * 0.28 }]} />
-
-      <View
-        style={[
-          styles.intersection,
-          {
-            left: geometry.intersectionMin,
-            top: geometry.intersectionMin,
-            width: geometry.roadWidth,
-            height: geometry.roadWidth,
-          },
-        ]}
-      />
-
       {crosswalks}
 
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.center - geometry.roadHalf,
-            top: geometry.intersectionMin - 3,
-            width: geometry.roadHalf,
-            height: 3,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.center,
-            top: geometry.intersectionMax,
-            width: geometry.roadHalf,
-            height: 3,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.intersectionMin - 3,
-            top: geometry.center,
-            width: 3,
-            height: geometry.roadHalf,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stopLine,
-          {
-            left: geometry.intersectionMax,
-            top: geometry.center - geometry.roadHalf,
-            width: 3,
-            height: geometry.roadHalf,
-          },
-        ]}
-      />
+      <View style={[styles.stopLine, {
+        left: geometry.centerX - geometry.roadHalf,
+        top: geometry.intersectionMinY - 3,
+        width: geometry.roadHalf,
+        height: 3,
+      }]} />
+      <View style={[styles.stopLine, {
+        left: geometry.centerX,
+        top: geometry.intersectionMaxY,
+        width: geometry.roadHalf,
+        height: 3,
+      }]} />
+      <View style={[styles.stopLine, {
+        left: geometry.intersectionMinX - 3,
+        top: geometry.centerY,
+        width: 3,
+        height: geometry.roadHalf,
+      }]} />
+      <View style={[styles.stopLine, {
+        left: geometry.intersectionMaxX,
+        top: geometry.centerY - geometry.roadHalf,
+        width: 3,
+        height: geometry.roadHalf,
+      }]} />
+
+      {renderBuilding('b1', 8, 74, leftSpace * 0.58, Math.min(150, topSpace * 0.31), '#b86b54')}
+      {renderBuilding('b2', rightStart + leftSpace * 0.17, 72, leftSpace * 0.68, Math.min(170, topSpace * 0.34), '#6d8eaa')}
+      {renderBuilding('b3', 8, bottomStart + 66, leftSpace * 0.66, Math.min(170, (height-bottomStart) * 0.34), '#9d7656')}
+      {renderBuilding('b4', rightStart + leftSpace * 0.15, bottomStart + 64, leftSpace * 0.70, Math.min(175, (height-bottomStart) * 0.35), '#748aa5')}
+
+      {renderTree('t1', leftSpace * 0.61, 92, 1.25)}
+      {renderTree('t2', leftSpace * 0.14, topSpace * 0.53, 0.95)}
+      {renderTree('t3', rightStart + leftSpace * 0.05, topSpace * 0.48, 1.1)}
+      {renderTree('t4', rightStart + leftSpace * 0.64, 118, 0.85)}
+      {renderTree('t5', leftSpace * 0.58, bottomStart + 94, 1.15)}
+      {renderTree('t6', leftSpace * 0.12, height - 122, 0.9)}
+      {renderTree('t7', rightStart + leftSpace * 0.05, bottomStart + 112, 1.2)}
+      {renderTree('t8', rightStart + leftSpace * 0.62, height - 130, 0.9)}
+
+      <View style={[styles.cornerPlanterLong, { left: 10, top: topSpace * 0.70, width: leftSpace * 0.58 }]} />
+      <View style={[styles.cornerPlanterLong, { right: 10, top: topSpace * 0.72, width: leftSpace * 0.55 }]} />
+      <View style={[styles.cornerPlanterLong, { left: 10, top: bottomStart + 30, width: leftSpace * 0.55 }]} />
+      <View style={[styles.cornerPlanterLong, { right: 10, top: bottomStart + 32, width: leftSpace * 0.58 }]} />
+
+      <View style={[styles.asphaltSeam, { left: geometry.centerX - geometry.roadWidth * 0.22, top: 0, width: 1, height }]} />
+      <View style={[styles.asphaltSeam, { left: geometry.centerX + geometry.roadWidth * 0.21, top: 0, width: 1, height }]} />
+      <View style={[styles.asphaltSeam, { top: geometry.centerY - geometry.roadWidth * 0.21, left: 0, height: 1, width }]} />
+      <View style={[styles.asphaltSeam, { top: geometry.centerY + geometry.roadWidth * 0.21, left: 0, height: 1, width }]} />
     </View>
   );
 }
 
-function Car({ car, size, onGesture, crashed }) {
+function Car({ car, width, height, onGesture, crashed }) {function Car({ car, size, onGesture, crashed }) {
   const startPoint = useRef({ x: 0, y: 0 });
-  const geometry = useMemo(() => makeGeometry(size), [size]);
+  const geometry = useMemo(() => makeGeometry(width, height), [width, height]);
   const center = getCarCenter(car, geometry);
   const horizontal = !isVertical(car.direction);
   const sign = getAxisSign(car.direction);
@@ -792,8 +667,12 @@ function Car({ car, size, onGesture, crashed }) {
 }
 
 export default function App() {
-  const { width: windowWidth } = useWindowDimensions();
-  const boardSize = Math.max(300, Math.min(windowWidth - 8, 820));
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const boardWidth = Math.max(320, Math.min(windowWidth, 820));
+  const boardHeight = Math.max(
+    boardWidth * 1.35,
+    Math.min(windowHeight - 2, boardWidth * 1.62, 1120)
+  );
   const [screenMode, setScreenMode] = useState('menu');
   const [cars, setCars] = useState([]);
   const [status, setStatus] = useState('ready');
@@ -1077,9 +956,9 @@ export default function App() {
 
       elapsedRef.current += delta;
       const currentLevel = 1 + Math.floor(elapsedRef.current / LEVEL_DURATION);
-      const geometry = makeGeometry(boardSize);
+      const geometry = makeGeometry(boardWidth, boardHeight);
       const baseSpeed =
-        boardSize *
+        boardWidth *
         (0.245 + Math.min(currentLevel - 1, 15) * 0.0115);
 
       let nextCars = carsRef.current.map((car) => {
@@ -1109,9 +988,12 @@ export default function App() {
       let exitedCount = 0;
       nextCars = nextCars.filter((car) => {
         const limit = geometry.carLength * 1.4;
+        const vertical = isVertical(car.direction);
+        const visibleMin = vertical ? geometry.visibleMinY : geometry.visibleMinX;
+        const visibleMax = vertical ? geometry.visibleMaxY : geometry.visibleMaxX;
         const outside =
-          car.axis < geometry.visibleMin - limit ||
-          car.axis > geometry.visibleMax + limit;
+          car.axis < visibleMin - limit ||
+          car.axis > visibleMax + limit;
 
         if (outside) exitedCount += 1;
         return !outside;
@@ -1197,7 +1079,7 @@ export default function App() {
     }, 16);
 
     return () => clearInterval(timer);
-  }, [boardSize, syncCars, refreshCloudData]);
+  }, [boardWidth, boardHeight, syncCars, refreshCloudData]);
 
   const handleTap = useCallback(
     (carId) => {
@@ -1242,7 +1124,7 @@ export default function App() {
         return;
       }
 
-      const geometry = makeGeometry(boardSize);
+      const geometry = makeGeometry(boardWidth, boardHeight);
       const currentCar = carsRef.current.find((car) => car.id === carId);
 
       if (!currentCar) return;
@@ -1311,7 +1193,7 @@ export default function App() {
         syncCars(nextCars);
       }
     },
-    [boardSize, handleTap, syncCars]
+    [boardWidth, boardHeight, handleTap, syncCars]
   );
 
   const levelProgress = (elapsed % LEVEL_DURATION) / LEVEL_DURATION;
@@ -1669,15 +1551,16 @@ export default function App() {
       <StatusBar style="dark" />
 
       <View style={styles.screen}>
-        <View style={[styles.board, { width: boardSize, height: boardSize }]}>
+        <View style={[styles.board, { width: boardWidth, height: boardHeight }]}>
           <View pointerEvents="box-none" style={styles.sceneLayer}>
-            <RoadScene size={boardSize} />
+            <RoadScene width={boardWidth} height={boardHeight} />
 
             {cars.map((car) => (
               <Car
                 key={car.id}
                 car={car}
-                size={boardSize}
+                width={boardWidth}
+                height={boardHeight}
                 onGesture={handleGesture}
                 crashed={crashedIds.includes(car.id)}
               />
@@ -1883,17 +1766,11 @@ const styles = StyleSheet.create({
   },
   board: {
     width: '100%',
-    aspectRatio: 1,
     alignSelf: 'center',
-    borderRadius: 8,
+    borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: '#d8e1dc',
     borderWidth: 0,
-    shadowColor: '#1f343c',
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
   sceneLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -1914,13 +1791,13 @@ const styles = StyleSheet.create({
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#5d6670',
+    backgroundColor: '#535d66',
   },
   intersection: {
     position: 'absolute',
-    backgroundColor: '#636d77',
+    backgroundColor: '#59636c',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   laneLine: {
     position: 'absolute',
@@ -1969,7 +1846,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(210,238,250,0.40)',
   },
   cityGround: {
-    backgroundColor: '#dfe8df',
+    backgroundColor: '#d5dfd7',
+  },
+  sidewalkVertical: {
+    position: 'absolute',
+    width: 8,
+    backgroundColor: '#c9cbc7',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#e7e8e4',
+  },
+  sidewalkHorizontal: {
+    position: 'absolute',
+    height: 8,
+    backgroundColor: '#c9cbc7',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e7e8e4',
   },
   cityCorner: {
     position: 'absolute',
@@ -2009,6 +1902,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#5f9fba',
     borderWidth: 1,
     borderColor: 'rgba(225,245,252,0.66)',
+  },
+  realBuildingShadow: {
+    position: 'absolute',
+    backgroundColor: 'rgba(31,48,57,0.22)',
+    borderRadius: 8,
+  },
+  realBuilding: {
+    borderRadius: 8,
+    padding: 6,
+    backgroundColor: '#d6e0e5',
+    borderWidth: 1,
+    borderColor: '#f4f8fa',
+    overflow: 'hidden',
+  },
+  realBuildingRoof: {
+    height: 8,
+    marginHorizontal: -6,
+    marginTop: -6,
+    marginBottom: 6,
+    opacity: 0.9,
+  },
+  realBuildingWindows: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 5,
+  },
+  realWindow: {
+    flex: 1,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: '#6ba6bf',
+    borderWidth: 1,
+    borderColor: 'rgba(226,246,252,0.72)',
+  },
+  realTree: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#69b965',
+    borderWidth: 4,
+    borderColor: '#91d37d',
+    shadowColor: '#24482b',
+    shadowOpacity: 0.30,
+    shadowRadius: 5,
+    shadowOffset: { width: 2, height: 4 },
+    elevation: 5,
+  },
+  realTreeMid: {
+    position: 'absolute',
+    width: '72%',
+    height: '72%',
+    borderRadius: 999,
+    backgroundColor: '#4b9b53',
+  },
+  realTreeCore: {
+    width: '36%',
+    height: '36%',
+    borderRadius: 999,
+    backgroundColor: '#34783f',
+  },
+  cornerPlanterLong: {
+    position: 'absolute',
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#7d9e6e',
+    borderWidth: 1,
+    borderColor: '#dfe8d9',
   },
   cornerSideBuilding: {
     position: 'absolute',
@@ -2099,7 +2059,7 @@ const styles = StyleSheet.create({
   crosswalkStripe: {
     position: 'absolute',
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: 'rgba(255,255,255,0.96)',
   },
   carGroundShadow: {
     position: 'absolute',
